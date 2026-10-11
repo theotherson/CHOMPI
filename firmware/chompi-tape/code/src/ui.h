@@ -305,9 +305,8 @@ namespace chompi
                 }
                 else if (hw_->button_sr.RisingEdge(i))
                 {
-                    // chompi key changes page to MenuPage
+                    // chompi key changes page to MenuPage, on both PORTA pages
                     if (i == static_cast<int>(Hardware::SwId::KEY_26)
-                        && toggle_state
                         && normal_page_.IsActive()
                         && !boot_page_.IsActive()
                         && !rainbow_page_.IsActive()

@@ -566,8 +566,12 @@ namespace chompi
             }
             SetPthLedFloat(led_map[33], r, g, b);
 
-            // loop key
-            if(fx_->GetLooperIsEmpty() && !fx_->IsLooperRecordArmed())
+            // loop key: the record light on the sampler page, the looper on the loop page
+            if(OnSamplerPage())
+            {
+                RecordLed(now, r, g, b);
+            }
+            else if(fx_->GetLooperIsEmpty() && !fx_->IsLooperRecordArmed())
             {
                 r = g = b = 0.f;
             }
@@ -604,65 +608,20 @@ namespace chompi
                 b = position;
             }
 
-            if(!switch_state)
-            {
-                r *= kRecDim;
-                g *= kRecDim;
-                b *= kRecDim;
-            }
             SetPthLedFloat(led_map[34], r, g, b);
 
-            // chompi key
-            fx_->SetInputMonitor(!switch_state);
-            if (!switch_state)
+            // chompi key: shift on both pages
+            fx_->SetInputMonitor(OnSamplerPage());
+            if (chompi_key_pressed)
             {
-                if(copier_->IsCopying())
-                {
-                    if(now - last_record_blink > 300)
-                    {
-                        record_blink = !record_blink;
-                        last_record_blink = now;
-                    }
-
-                    if(record_blink)
-                    {
-                        r = pink[0];
-                        g = pink[1];
-                        b = pink[2];
-                    }
-                    else
-                    {
-                        r = g = b = 0.f;
-                    }
-                }
-                else if (fx_->Recording())
-                {
-                    r = red[0];
-                    g = red[1];
-                    b = red[2];
-                }
-                else
-                {
-                    float vu_sample = fx_->GetVUSample(VUTarget::VU_INPUT);
-                
-                    r = color_quad_xfade(.1f, green[0], yellow[0], pink[0], vu_sample);
-                    g = color_quad_xfade(.1f, green[1], yellow[1], pink[1], vu_sample);
-                    b = color_quad_xfade(.1f, green[2], yellow[2], pink[2], vu_sample);
-                }
+                r = .67f;
+                g = 0.f;
+                b = 1.f;
             }
             else
             {
-                if (chompi_key_pressed)
-                {
-                    r = .67f;
-                    g = 0.f;
-                    b = 1.f;
-                }
-                else
-                {
-                    r = g = b = 0.f;
-                }
-            } 
+                r = g = b = 0.f;
+            }
 
             SetPthLedFloat(led_map[5], r, g, b);
 
@@ -771,10 +730,12 @@ namespace chompi
                 hw_->SendCC(midi_channel, 26, rising ? 127 : 0);
                 break;
             }
-            case static_cast<uint16_t>(Hardware::SwId::KEY_28): // loop
+            case static_cast<uint16_t>(Hardware::SwId::KEY_28): // loop: PORTA's record key
             {
                 last_arm_blink = System::GetNow();
-                if(!fx_->Recording())
+                if(OnSamplerPage())
+                    RecordButton(rising);
+                else if(!fx_->Recording())
                     fx_->LooperRecordButton(rising);
                 hw_->SendCC(midi_channel, 27, rising ? 127 : 0);
                 break;
@@ -792,24 +753,6 @@ namespace chompi
                     midi_channel = rising;
                 }
 
-                // chompi mode
-                if(!switch_state)
-                {
-                    bool latch = fx_->GetRecordLatch();
-                    bool rec = fx_->Recording();
-
-                    if (rising && !rec)
-                    {
-                        fx_->StartNewRecording(0);
-                        last_record_blink = System::GetNow();
-                        record_blink = false;
-                    }
-                    else if(!rising && !latch && rec)
-                        StopVoiceRecording();
-                    else if(rising && rec && latch)
-                        StopVoiceRecording();
-                }
- 
                 break;
             }
 
@@ -1032,6 +975,35 @@ namespace chompi
 
         }
 
+        // blinks pink while a recording is saved, red while recording, else the input level
+        void RecordLed(uint32_t now, float &r, float &g, float &b)
+        {
+            if(copier_->IsCopying())
+            {
+                if(now - last_record_blink > 300)
+                {
+                    record_blink = !record_blink;
+                    last_record_blink = now;
+                }
+                r = record_blink ? pink[0] : 0.f;
+                g = record_blink ? pink[1] : 0.f;
+                b = record_blink ? pink[2] : 0.f;
+            }
+            else if(fx_->Recording())
+            {
+                r = red[0];
+                g = red[1];
+                b = red[2];
+            }
+            else
+            {
+                const float vu_sample = fx_->GetVUSample(VUTarget::VU_INPUT);
+                r = color_quad_xfade(.1f, green[0], yellow[0], pink[0], vu_sample);
+                g = color_quad_xfade(.1f, green[1], yellow[1], pink[1], vu_sample);
+                b = color_quad_xfade(.1f, green[2], yellow[2], pink[2], vu_sample);
+            }
+        }
+
         void SetSwitchState(bool state)
         {
             if(state && !switch_state && fx_->Recording() && !copier_->IsCopying())
@@ -1040,6 +1012,27 @@ namespace chompi
             }
 
             switch_state = state; 
+        }
+
+        // PORTA: the toggle picks the page. Down (TAPE's record position, input monitored) is the sampler page.
+        inline bool OnSamplerPage() const { return !switch_state; }
+
+        // the loop key on the sampler page: record into the buffer, held or latched (TAPE's CHOMPI key did this)
+        void RecordButton(bool rising)
+        {
+            const bool latch = fx_->GetRecordLatch();
+            const bool rec   = fx_->Recording();
+
+            if(rising && !rec)
+            {
+                fx_->StartNewRecording(0);
+                last_record_blink = System::GetNow();
+                record_blink      = false;
+            }
+            else if(!rising && !latch && rec)
+                StopVoiceRecording();
+            else if(rising && rec && latch)
+                StopVoiceRecording();
         }
 
         void StopVoiceRecording()

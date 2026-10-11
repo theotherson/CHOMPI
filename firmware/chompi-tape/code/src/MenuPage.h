@@ -1042,6 +1042,7 @@ namespace chompi
             fx_reset = false;
             pitch_reset = false;
             chompi_key_pressed = true;
+            opened_on_loop_page_ = switch_state;
 
             if(quantized_pitch_)
             {
@@ -1068,7 +1069,7 @@ namespace chompi
                 || (preset_mode == PresetMode::ERASING && !fx_->IsErasing())        // finished erasing OR
                 || (preset_mode == PresetMode::NONE && !chompi_key_pressed)         // did nothing OR
                 || (preset_mode != PresetMode::COPYING  && preset_mode != PresetMode::SAVING 
-                    && preset_mode != PresetMode::ERASING && !switch_state)) // NOT working on a copy/save/erase and the mode switch went up)
+                    && preset_mode != PresetMode::ERASING && switch_state != opened_on_loop_page_)) // NOT working on a copy/save/erase and the page changed
             )
             {
                 if((preset_mode == PresetMode::SAVING || preset_mode == PresetMode::COPYING) && selected_slot == 16)
@@ -1119,6 +1120,7 @@ namespace chompi
         bool input_toggled;
 
         bool chompi_key_pressed = false;
+        bool opened_on_loop_page_ = false; // the toggle when the menu opened, the menu closes if it moves
         bool blink_state = true;
         uint32_t blink_startt;
         uint32_t last_blink;
