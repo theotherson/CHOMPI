@@ -333,6 +333,16 @@ int main(void)
     fsi.Init(FatFSInterface::Config::MEDIA_SD);
     f_mount(&fsi.GetSDFileSystem(), fsi.GetSDPath(), 1);
 
+    /* Keep PORTA's files out of the card root.
+     *
+     *  Every path this firmware opens is relative -- samples, options.json,
+     *  presets.json, and the files it writes while sampling -- so moving the
+     *  working directory once relocates all of them, and other firmwares on a
+     *  multi-firmware card keep the root.
+     *
+     *  If /PORTA is absent we stay in the root, so a stock card still works. */
+    f_chdir("/PORTA");
+
     // delete the battery log if it exists
     char filename[32];
     sprintf(filename, ".batt_log.txt");
