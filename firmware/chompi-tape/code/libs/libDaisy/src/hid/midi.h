@@ -252,7 +252,9 @@ class MidiHandler
     Config               config_;
     Transport            transport_;
     MidiParser           parser_;
-    FIFO<MidiEvent, 256> event_q_;
+    // CHOMPI: an event is 144 bytes (SysEx buffer), so 256 cost 37 KB per handler.
+    // The app drains the queue every millisecond or two; 64 is plenty.
+    FIFO<MidiEvent, 64> event_q_;
 
     static void ParseCallback(uint8_t* data, size_t size, void* context)
     {
