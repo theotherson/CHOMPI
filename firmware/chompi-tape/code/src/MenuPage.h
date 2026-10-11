@@ -308,19 +308,23 @@ namespace chompi
                 SetSmtLedFloat(7, 0.f, 0.f, 0.f);
             }
 
-            // FX pre / post looper
-            int led_sel = fx_->GetFxPreLooper() ? 5 : 6;
-            int led_off = fx_->GetFxPreLooper() ? 6 : 5;
-            SetSmtLedFloat(led_sel, yellow[0], yellow[1], yellow[2]);
-            SetSmtLedFloat(led_off, 0.f, 0.f, 0.f);
-        
-            // Input select
-            led_sel = 2;
-            led_sel += static_cast<int>(fx_->GetInputSource());
+            // FX pre / post looper, one key: yellow pre, teal post. Mid D# is free for now.
+            if(fx_->GetFxPreLooper())
+                SetSmtLedFloat(5, yellow[0], yellow[1], yellow[2]);
+            else
+                SetSmtLedFloat(5, teal[0], teal[1], teal[2]);
+            SetSmtLedFloat(6, 0.f, 0.f, 0.f);
+
+            // Input, one key whose colour says which: pink mic, blue aux, yellow resample.
+            // Low F# and G# are free for now.
             SetSmtLedFloat(2, 0.f, 0.f, 0.f);
             SetSmtLedFloat(3, 0.f, 0.f, 0.f);
-            SetSmtLedFloat(4, 0.f, 0.f, 0.f);
-            SetSmtLedFloat(led_sel, pink[0], .7f * pink[1], .7f * pink[2]);
+            switch(fx_->GetInputSource())
+            {
+                case InputSource::MIC: SetSmtLedFloat(4, pink[0], .7f * pink[1], .7f * pink[2]); break;
+                case InputSource::LINE_IN: SetSmtLedFloat(4, blue[0], blue[1], blue[2]); break;
+                default: SetSmtLedFloat(4, yellow[0], yellow[1], yellow[2]); break;
+            }
 
             // white keys
             for (uint8_t i = 1; i < 16; i++)
@@ -838,21 +842,21 @@ namespace chompi
             }
             break;
 
-            case static_cast<uint16_t>(Hardware::SwId::KEY_18): // mic in, fall through
-            case static_cast<uint16_t>(Hardware::SwId::KEY_19): // aux in, fall through
-            case static_cast<uint16_t>(Hardware::SwId::KEY_20): // resample
+            // PORTA: low F# (slice mode / sampler page TBD) and low G# (sequencer), not built yet
+            case static_cast<uint16_t>(Hardware::SwId::KEY_18): // fall through
+            case static_cast<uint16_t>(Hardware::SwId::KEY_19):
+            {
+                if(!rising)
+                    return false; // note off falls through
+                break;
+            }
+
+            case static_cast<uint16_t>(Hardware::SwId::KEY_20): // input: mic -> aux -> resample
             {
                 if(rising)
                 {
-                    InputSource source;
-                    if(buttonID == static_cast<uint16_t>(Hardware::SwId::KEY_18))
-                        source = InputSource::MIC;
-                    else if(buttonID == static_cast<uint16_t>(Hardware::SwId::KEY_19))
-                        source = InputSource::LINE_IN;
-                    else
-                        source = InputSource::RESAMPLE;
-
-                    fx_->SetInputSource(source);
+                    const int next = (static_cast<int>(fx_->GetInputSource()) + 1) % static_cast<int>(InputSource::LAST);
+                    fx_->SetInputSource(static_cast<InputSource>(next));
                 }
                 else if(!rising)
                     return false; // note off falls through
@@ -861,16 +865,23 @@ namespace chompi
             }
 
 
-            case static_cast<uint16_t>(Hardware::SwId::KEY_21): // fx pre looper, fall through
-            case static_cast<uint16_t>(Hardware::SwId::KEY_22): // fx post looper
+            case static_cast<uint16_t>(Hardware::SwId::KEY_21): // fx pre / post looper
             {
                 if(rising)
                 {
-                    fx_->SetFxPreLooper(buttonID == static_cast<uint16_t>(Hardware::SwId::KEY_21));
+                    fx_->SetFxPreLooper(!fx_->GetFxPreLooper());
                 }
                 else if(!rising)
                     return false; // note off falls through
 
+                break;
+            }
+
+            // PORTA: mid D#, loop length, not built yet
+            case static_cast<uint16_t>(Hardware::SwId::KEY_22):
+            {
+                if(!rising)
+                    return false; // note off falls through
                 break;
             }
 
