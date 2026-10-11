@@ -48,7 +48,7 @@ as with TAPE's shift menu. White keys are keys 1–15.
 | low C# | Current project (**open:** does it show the project's layers 1–4 on the white keys?) |
 | low D# | Project slots 1–15 on the white keys |
 | low F# | Slice mode for the active layer(s). Hold: slice the loop across the white keys (see Slicing) |
-| low G# | Sequencer/arp on, pattern options, latch (shift+G#). **(open: exact gestures, see below)** |
+| low G# | Sequencer/arp: tap on/off, hold for patterns, CHOMPI + tap to latch (see Arp gestures) |
 | low A# | **(open)** |
 | mid C# | FX pre/post toggle **(open: same on both pages?)** |
 | mid D# | Loop length, all layers or each one **(open: same on both pages?)** |
@@ -61,16 +61,25 @@ as with TAPE's shift menu. White keys are keys 1–15.
 | low C# | Chromatic banks: 15 samples, each played chromatically (TAPE's JAMMI) |
 | low D# | 15 one-shots at fixed pitch (TAPE's CUBBI) |
 | low F# | **(open)** |
-| low G# | Sequencer/arp. Latch (shift+G#) holds the notes, or the arp if it's playing **(open: exact gestures)** |
+| low G# | Sequencer/arp: CHOMPI + tap to latch, patterns via hold (CHOMPI + hold in chromatic mode; see Arp gestures) |
 | low A# | Input type: cycles mic → aux → resample. Key LED colour shows which |
 | mid C#, mid D#, upper F#/G#/A# | As on the loop page **(open)** |
 
-### Gestures (open)
+### Arp gestures on G#
 
-Latch is **shift+G#** (Sam's choice). "Shift" is the CHOMPI key (MIXTAPE's docs call it SHIFT), and holding it
-is also what makes G# a function key, so shift+G# can't be both "arp on" and "latch". Options:
-1. Shift+hold G#: pick a pattern, which turns the arp on ("off" in the list turns it off). Shift+tap G#: latch.
-2. Shift+tap G#: arp on/off. Shift+double-tap G#: latch. Shift+hold G#: patterns.
+"Shift" is the CHOMPI key (MIXTAPE's docs call it SHIFT). In chromatic mode the black keys are notes,
+so there the arp needs CHOMPI held.
+
+| | Loop page / one-shots | Chromatic mode |
+|---|---|---|
+| Arp on/off | tap G# | pick a pattern (key 1 = off) |
+| Patterns on the white keys, key 1 = off | hold G# | CHOMPI + hold G# |
+| Latch | CHOMPI + tap G# | CHOMPI + tap G# |
+
+- Latch is CHOMPI + tap G# everywhere: notes when nothing plays, the arp when it does.
+- **(open)** Should CHOMPI + hold G# also open patterns on the loop page and one-shots, so one gesture works everywhere?
+- **(open)** Pattern keys: suggested key 1 off; keys 2–6 sequence (order pressed), up, down, ping-pong, random;
+  keys 7–11 TEMPO's rest patterns?
 
 ### Encoders, wheel, play/loop keys (open)
 
