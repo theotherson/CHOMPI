@@ -19,8 +19,12 @@ The **toggle switch** chooses the page:
 | one side | **Sampler page** | Record an input into the buffer, manipulate it, save it to a sample slot. Play the sample banks, with the sequencer/arp. |
 | other side | **Loop page** | Build a project's loop from up to 4 layers, manipulate layers or the whole loop, print and save. |
 
-This replaces the toggle's TAPE role (play vs record). Recording moves to buttons:
-holding CHOMPI on the sampler page and the loop key on the loop page **(open: confirm)**.
+Toggle down (TAPE's record position, input monitored) is the sampler page; up is the loop page.
+
+Recording: in TAPE, the CHOMPI key records in the record position and opens the black-key menu in the
+play position. PORTA needs that menu on both pages, so CHOMPI is shift only and **the loop key records**:
+a sample on the sampler page, a layer on the loop page. **Play** is the loop transport on both pages.
+**(draft choice, open: confirm)**
 
 ### The shared buffer
 
