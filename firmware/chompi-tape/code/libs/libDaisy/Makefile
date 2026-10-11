@@ -73,7 +73,8 @@ util/WaveTableLoader \
 # building variables
 ######################################
 DEBUG = 0
-OPT = -O2
+# CHOMPI: built for size, the firmware is short of SRAM for code. The hot paths are the app's.
+OPT = -Os
 
 #######################################
 # paths
@@ -315,6 +316,9 @@ CPP_WARNINGS += -Wno-register
 ASFLAGS = $(MCU) $(AS_INCLUDES) $(AS_DEFS) -ggdb $(WARNINGS) $(OPT) -fdata-sections -ffunction-sections
 
 CFLAGS = $(MCU) $(C_INCLUDES) $(C_DEFS) -ggdb $(WARNINGS) $(OPT) -fasm -fdata-sections -ffunction-sections
+# CHOMPI: no local paths in the committed objects
+CFLAGS += -ffile-prefix-map=$(CURDIR)=.
+CFLAGS += -ffile-prefix-map=$(abspath $(dir $(shell which $(CC)))..)=/toolchain
 
 ifeq ($(DEBUG), 1)
 CFLAGS += -g -ggdb
