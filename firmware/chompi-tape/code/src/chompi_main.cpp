@@ -9,6 +9,7 @@
 #include "RamBuffer.h"
 #include "InterpolatedDelayLine.h"
 #include "OptionsManager.h"
+#include <cerrno>
 
 #define DSY_DTCMRAM_BSS __attribute__((section(".dtcmram_bss")))
 
@@ -100,6 +101,25 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
         engine.Process(in, out, size);
 
     // meter.OnBlockEnd();
+}
+
+// The heap: newlib's starts after .bss and its _sbrk has no limit, so a malloc (USB on plugging into a
+// computer, atof's bignums) can run off the end of RAM. It lives in DTCM instead, and running out gives
+// NULL. The CPU is all that touches it, so DTCM is fine.
+static constexpr size_t kHeapSize = 8 * 1024;
+uint8_t DSY_DTCMRAM_BSS heap_mem[kHeapSize];
+size_t heap_used; // .bss, zeroed before anything can malloc
+
+extern "C" void* _sbrk(ptrdiff_t incr)
+{
+    if(incr < 0 || heap_used + incr > kHeapSize)
+    {
+        errno = ENOMEM;
+        return reinterpret_cast<void*>(-1);
+    }
+    void* prev = &heap_mem[heap_used];
+    heap_used += incr;
+    return prev;
 }
 
 void ZeroSDRAM()
