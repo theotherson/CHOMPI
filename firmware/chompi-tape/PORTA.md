@@ -85,10 +85,10 @@ so there the arp needs CHOMPI held.
   |---|---|---|---|---|---|---|---|
   | | off | sequence (order pressed) | up | down | ping-pong | random | TEMPO's rest patterns |
 
-### Encoders, wheel, play/loop keys (open)
+### Encoders, wheel, play/loop keys
 
-What all six encoders, the wheel and the play/loop keys do on each page. The start/end knobs set the
-project's loop length.
+To start, both pages keep TAPE 2.0's behaviour for the six encoders, the wheel and the play/loop keys.
+They'll be revisited once the pages work on the hardware. The start/end knobs set the project's loop length.
 
 ---
 
