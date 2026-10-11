@@ -4,7 +4,8 @@ A CHOMPI firmware built on TAPE 2.0 with two sides: making samples and building 
 It borrows from Chase Bliss Blooper (layered loops you can manipulate and print) and the OP-1
 (projects, a tape you build up). This is the design spec; it changes as decisions are made.
 
-**Status:** groundwork done on the `porta` branch, not yet tested on hardware. No PORTA features yet.
+**Status:** groundwork on the `porta` branch. A first draft of the features (page switch, sampler-page keys,
+four-layer looper) is on `porta-draft`. Neither has been tested on hardware yet.
 
 Items marked **(open)** are undecided.
 
@@ -49,7 +50,7 @@ as with TAPE's shift menu. White keys are keys 1–15.
 
 | Key | Function |
 |---|---|
-| low C# | Current project (**open:** does it show the project's layers 1–4 on the white keys?) |
+| low C# | Current project: shows its layers on keys 1–4 (green = recording into, white = recorded, dim = empty, dim red = being cleared); a key picks the layer **(draft: built this way, confirm)** |
 | low D# | Project slots 1–15 on the white keys |
 | low F# | Slice mode for the active layer(s). Hold: slice the loop across the white keys (see Slicing) |
 | low G# | Tap: sequencer on/off, sequencing the layer with the white keys. CHOMPI + hold: patterns. CHOMPI + tap: latch (see Arp gestures) |
@@ -122,6 +123,18 @@ Slice a layer across the white keys and play the slices in any order.
 - Record the slice performance back into a layer, which is resampling into the buffer.
 
 Get recording, layers and printing working first, then slicing.
+
+---
+
+### How the four layers work (draft)
+
+- The first recording, on the selected layer, sets the loop length; that layer is the master.
+- The other layers take the master's length and position and play in step with it, each from its own buffer.
+- The loop key overdubs into the selected layer only; the output is all four summed.
+- Speed, direction and scrub move all layers together.
+- After a reset, the old layers are cleared in the background (well under a second). A layer being cleared is silent
+  and can't be recorded into.
+- Not done yet: saving and loading the looper still covers layer 1 only; no projects yet.
 
 ---
 
