@@ -61,7 +61,7 @@ as with TAPE's shift menu. White keys are keys 1–15.
 | low C# | Chromatic banks: 15 samples, each played chromatically (TAPE's JAMMI) |
 | low D# | 15 one-shots at fixed pitch (TAPE's CUBBI) |
 | low F# | **(open)** |
-| low G# | Sequencer/arp. CHOMPI + hold: patterns. CHOMPI + tap: latch (see Arp gestures) |
+| low G# | Sequencer/arp. One-shots: tap toggles it on/off. CHOMPI + hold: patterns. CHOMPI + tap: latch (see Arp gestures) |
 | low A# | Input type: cycles mic → aux → resample. Key LED colour shows which |
 | mid C#, mid D#, upper F#/G#/A# | As on the loop page **(open)** |
 
@@ -70,16 +70,15 @@ as with TAPE's shift menu. White keys are keys 1–15.
 "Shift" is the CHOMPI key (MIXTAPE's docs call it SHIFT). In chromatic mode the black keys are notes,
 so there the arp needs CHOMPI held.
 
-| | Loop page | Sampler page (chromatic) |
+| | Loop page, and one-shots on the sampler page | Sampler page, chromatic |
 |---|---|---|
-| Sequencer on/off | tap G# (sequences the layer with the white keys) | pick a pattern (key 1 = off) |
+| Sequencer on/off | tap G# (sequences what's on the white keys: the layer, or the one-shots) | pick a pattern (key 1 = off) |
 | Patterns on the white keys, key 1 = off | CHOMPI + hold G# | CHOMPI + hold G# |
 | Latch | CHOMPI + tap G# | CHOMPI + tap G# |
 
-- Patterns and latch use the same gestures everywhere; only the loop page adds the plain G# tap,
-  because there the black keys show their functions and G# isn't a note.
+- Patterns and latch use the same gestures everywhere. The plain G# tap works wherever G# isn't a note:
+  the loop page and one-shot mode.
 - Latch: notes when nothing plays, the arp when it does.
-- **(open)** One-shots (sampler page, D#): G# isn't a note there either. Plain tap = on/off like the loop page?
 - **(open)** Pattern keys: suggested key 1 off; keys 2–6 sequence (order pressed), up, down, ping-pong, random;
   keys 7–11 TEMPO's rest patterns?
 
