@@ -143,7 +143,7 @@ namespace daisy
             float samplerate, 
             daisysp::Reverb* reverb, 
             chompi::InterpolatedDelayLine::AudioSample* del,
-            RamBufferMemory* loop_buff,
+            RamBufferMemory* loop_buff, // kNumLayers of them
             RamBufferMemory* chompi_buff,
             bool latch,
             bool tape_slew,
@@ -1276,6 +1276,13 @@ namespace daisy
         inline float GetLooperDubGain() { return looper.GetDubGain(); }
 
         inline void LooperOpenFile() { looper.OpenFile(); }
+
+        /** PORTA looper layers */
+        inline size_t GetLooperLayer() { return looper.ActiveLayer(); }
+        inline void SetLooperLayer(size_t layer) { looper.SetActiveLayer(layer); }
+        inline bool IsLooperLayerFilled(size_t layer) { return looper.LayerFilled(layer); }
+        inline bool IsLooperLayerReady(size_t layer) { return looper.LayerReady(layer); }
+        inline void ServiceLooper() { looper.ServiceClears(); } // SD timer
 
         inline int GetBank() { return bank[int(voice_mode)];}
         inline size_t GetVoiceBank() 

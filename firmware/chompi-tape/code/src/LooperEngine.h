@@ -10,6 +10,10 @@ static const uint32_t kRecordClearTimeout = 2000;
 static const uint32_t kButtonTimeout = 10;
 namespace daisy
 {
+    /** PORTA: the loop is up to four layers. The first recording, on whichever layer is active, sets the
+     *  loop's length; that layer is the master. The others then play in lockstep with it, each from its
+     *  own buffer, and recording a layer overdubs into that layer only. The output is all layers summed. */
+    static constexpr size_t kNumLayers = 4;
 
     /** @brief Logic for main looper engine */
     class LooperEngine
@@ -18,9 +22,16 @@ namespace daisy
         LooperEngine() {}
         ~LooperEngine() {}
 
-        void Init(float sr, RamBufferMemory* loop_buff, bool tape_slew)
+        void Init(float sr, RamBufferMemory* layer_buffs, bool tape_slew)
         {
-            looper.Init(sr, loop_buff, tape_slew);
+            for(size_t i = 0; i < kNumLayers; i++)
+            {
+                mem_[i] = &layer_buffs[i];
+                layers_[i].Init(sr, mem_[i], tape_slew);
+                filled_[i] = false;
+                dirty_len_[i] = 0;
+            }
+            active_ = master_ = 0;
 
             record = false;
             first_record = true;
@@ -28,16 +39,14 @@ namespace daisy
             record_arm = false;
             playing = false;
 
-            char name_buffer[32];
-            sprintf(name_buffer, "looper.wav");
-            looper.Reset();
+            Master().Reset();
 
             fx_env_ = fx_env_target_ = 1.f;
         }
 
         void FXEnvelope()
         {
-            if(IsFirstRecording() && !IsRecording() && !looper.IsResetting())
+            if(IsFirstRecording() && !IsRecording() && !Master().IsResetting())
                 return;
 
             fx_env_target_ = 0.f;
@@ -45,10 +54,8 @@ namespace daisy
 
         void Process(float* out_l, float* out_r, size_t size)
         {
-            if(IsFirstRecording() && !IsRecording() && !looper.IsResetting())
+            if(IsFirstRecording() && !IsRecording() && !Master().IsResetting())
                 return;
-
-            // looper.PerBlock(playing);
 
             if(fx_env_ < .01f)
                 fx_env_target_ = 1.f;
@@ -57,22 +64,36 @@ namespace daisy
             {
                 daisysp::fonepole(fx_env_, fx_env_target_, .001f);
 
-                if(!first_record || looper.IsResetting())
+                const int16_t in_l = f2s16(out_l[i] * fx_env_);
+                const int16_t in_r = f2s16(out_r[i] * fx_env_);
+
+                if(!first_record || Master().IsResetting())
                 {
-                    int16_t aol = 0;
-                    int16_t aor = 0;
+                    float sum_l = 0.f, sum_r = 0.f;
+                    for(size_t l = 0; l < kNumLayers; l++)
+                    {
+                        const bool rec_here = record && l == active_;
+                        int16_t aol = 0;
+                        int16_t aor = 0;
+                        layers_[l].PopStereoSamps(rec_here ? in_l : 0, rec_here ? in_r : 0, &aol, &aor,
+                                                  rec_here, playing);
+                        // a layer waiting to be cleared stays silent, except while the reset fades everything out
+                        if(!dirty_len_[l] || Master().IsResetting())
+                        {
+                            sum_l += s162f(aol);
+                            sum_r += s162f(aor);
+                        }
+                    }
 
-                    looper.PopStereoSamps(f2s16(out_l[i] * fx_env_), f2s16(out_r[i] * fx_env_), &aol, &aor, record, playing);
-
-                    out_l[i] += s162f(aol) * fx_env_;
-                    out_r[i] += s162f(aor) * fx_env_;
+                    out_l[i] += sum_l * fx_env_;
+                    out_r[i] += sum_r * fx_env_;
                 }
                 else if(!reset)
                 {
-                    looper.PushStereoSamps(f2s16(out_l[i] * fx_env_), f2s16(out_r[i] * fx_env_));
+                    Master().PushStereoSamps(in_l, in_r);
                 }
 
-                if(looper.WriteFullLength())
+                if(first_record && Master().WriteFullLength())
                 {
                     ToggleRecord(); // overdub mode
                     ToggleRecord(); // play mode
@@ -80,30 +101,60 @@ namespace daisy
             }
         }
 
+        /** SD timer: zero layers left over from the last loop, a chunk at a time. A dirty layer is silent
+         *  and can't be recorded into, so the audio never meets a half-cleared one. */
+        void ServiceClears()
+        {
+            static constexpr size_t kChunk = 16 * 1024; // samples, 32 KB per tick
+            if(reset || Master().IsResetting())
+                return; // the old loop is still fading out
+            for(size_t l = 0; l < kNumLayers; l++)
+            {
+                const size_t len = dirty_len_[l];
+                if(!len)
+                    continue;
+                const size_t n = len < kChunk ? len : kChunk;
+                std::fill(&mem_[l]->mem[len - n], &mem_[l]->mem[len], 0);
+
+                // the audio interrupt may have started a first recording here and called it clean meanwhile
+                const uint32_t primask = __get_PRIMASK();
+                __disable_irq();
+                if(dirty_len_[l] == len)
+                    dirty_len_[l] = len - n;
+                __set_PRIMASK(primask);
+                return; // one chunk per tick
+            }
+        }
+
         inline bool IsPlaying() { return playing && !first_record; }
         inline bool IsFirstRecording() { return first_record; }
 
-        void IncrementDubGain(float gain) { looper.IncrementDubGain(gain, first_record && !record); }
-        inline float GetDubGain() { return looper.GetDubGain(); }
+        void IncrementDubGain(float gain)
+        {
+            for(auto& layer : layers_)
+                layer.IncrementDubGain(gain, first_record && !record);
+        }
+        inline float GetDubGain() { return Master().GetDubGain(); }
 
         bool CheckReset()
         {
-            if(!looper.IsResetting() && !record_btn && !play_btn)
+            if(!Master().IsResetting() && !record_btn && !play_btn)
                 reset = false;
 
-            uint32_t elapsed = System::GetNow() - last_button_press;            
+            uint32_t elapsed = System::GetNow() - last_button_press;
             if(elapsed >= kButtonTimeout)
             {
                 if(play_btn && !record_btn && !reset && !toggle_play && (record || IsPlaying())) // rising edge and recording or playing
                     TogglePlaying();
                 if(record_btn && !play_btn && !reset && !toggle_record)
-                    ToggleRecord();            
+                    ToggleRecord();
             }
             if(elapsed >= kRecordClearTimeout)
             {
                 if(!record_btn && play_btn && !jump_to_start && !IsPlaying())
                 {
-                    looper.JumpToStart();
+                    for(auto& layer : layers_)
+                        layer.JumpToStart();
                     jump_to_start = true;
                     return false;
                 }
@@ -123,10 +174,14 @@ namespace daisy
             {
                 record = true;
                 record_target = false;
-                looper.ReadyToRecord();
+                layers_[active_].ReadyToRecord();
 
                 if(IsFirstRecording())
-                    looper.ResetRamBuff();
+                {
+                    master_ = active_;
+                    dirty_len_[master_] = 0; // the new recording overwrites it, no need to clear
+                    Master().ResetRamBuff();
+                }
             }
 
             if(play_target)
@@ -141,11 +196,24 @@ namespace daisy
             return record;
         }
 
-        inline void SetPitch(float val) { looper.SetVarispeed(val); }
-        inline void SetReverse(bool rev) { looper.SetReverse(rev); }
-        inline void SetScrub(float scrub) { looper.SetScrub(scrub); }
-        inline float GetScrub() { return looper.GetScrub(); }
-        inline bool GetReverse() { return looper.GetReverse(); }
+        // speed, direction and scrub move every layer together, so they stay in step
+        inline void SetPitch(float val)
+        {
+            for(auto& layer : layers_)
+                layer.SetVarispeed(val);
+        }
+        inline void SetReverse(bool rev)
+        {
+            for(auto& layer : layers_)
+                layer.SetReverse(rev);
+        }
+        inline void SetScrub(float scrub)
+        {
+            for(auto& layer : layers_)
+                layer.SetScrub(scrub);
+        }
+        inline float GetScrub() { return Master().GetScrub(); }
+        inline bool GetReverse() { return Master().GetReverse(); }
 
         void RecordButton(bool rising)
         {
@@ -154,7 +222,7 @@ namespace daisy
             toggle_record = false;
             last_button_press = System::GetNow();
 
-            if(looper.IsResetting() || reset || record_arm)
+            if(Master().IsResetting() || reset || record_arm)
                 return; // short circuit situations
             else if(record_btn && play_btn && first_record && !record)
                 record_arm = true;
@@ -172,8 +240,8 @@ namespace daisy
 
             play_btn = rising;
             last_button_press = System::GetNow();
-         
-            if(looper.IsResetting() || reset || record_arm)
+
+            if(Master().IsResetting() || reset || record_arm)
                 return; // short circuit situations
             else if(record_btn && play_btn && first_record && !record)
                 record_arm = true;
@@ -193,18 +261,24 @@ namespace daisy
 
                 if(first_record) // reload, then overdub
                 {
-                    looper.JumpToStart();
+                    Master().JumpToStart();
+                    FollowMaster();
                 }
 
+                filled_[active_] = true;
                 first_record = false;
                 play_target = true;
                 playing = false;
             }
             else
             {
+                if(!first_record && dirty_len_[active_])
+                    return; // the layer is still being cleared, a moment
+
                 if(first_record)
                 {
-                    looper.WriteJump(sizeof(WAV_FormatTypeDef));
+                    active_ = ActiveForFirstRecording();
+                    layers_[active_].WriteJump(sizeof(WAV_FormatTypeDef));
                 }
                 if (!first_record)
                 {
@@ -233,23 +307,29 @@ namespace daisy
 
         inline bool GetRecordArm() { return record_arm; }
         inline bool GetIsEmpty() { return !record && first_record; }
-        
-        float GetPosition() { 
-            float tell = static_cast<float>(looper.GetReadTell());
-            float size = static_cast<float>(looper.GetReadSize());
+
+        float GetPosition() {
+            float tell = static_cast<float>(Master().GetReadTell());
+            float size = static_cast<float>(Master().GetReadSize());
             return tell / size;
         }
 
         float GetPitch()
         {
-            return looper.GetVarispeed();
+            return Master().GetVarispeed();
         }
 
         inline bool GetReset() { return reset; }
 
         void Reset()
         {
-            looper.Reset();
+            for(size_t l = 0; l < kNumLayers; l++)
+            {
+                layers_[l].Reset();
+                // what's in the layers now is the old loop: it gets cleared in the background
+                dirty_len_[l] = mem_[l]->length;
+                filled_[l] = false;
+            }
             reset = true;
 
             record = false;
@@ -259,6 +339,7 @@ namespace daisy
             playing = false;
         }
 
+        /** a looper file was loaded into layer 1's memory */
         void OpenFile()
         {
             first_record = false;
@@ -267,13 +348,69 @@ namespace daisy
             record_arm = false;
             record_target = false;
 
-            looper.SetVarispeed(1.f, true);
-            looper.JumpTo(0);
-            looper.ForceSetScrub(0.f);
+            master_ = active_ = 0;
+            Master().SetVarispeed(1.f, true);
+            Master().JumpTo(0);
+            Master().ForceSetScrub(0.f);
+            filled_[0] = true;
+            for(size_t l = 1; l < kNumLayers; l++)
+            {
+                dirty_len_[l] = mem_[l]->length > mem_[0]->length ? mem_[l]->length : mem_[0]->length;
+                filled_[l] = false;
+            }
+            FollowMaster();
+        }
+
+        /** Layers, for the UI */
+        inline size_t ActiveLayer() const { return active_; }
+        inline bool LayerFilled(size_t l) const { return l < kNumLayers && filled_[l]; }
+        inline bool LayerReady(size_t l) const { return l < kNumLayers && !dirty_len_[l]; }
+
+        /** Pick the layer the loop key records into. An overdub under way moves with it. Not during the
+         *  first recording, which is what sets the loop's length. */
+        void SetActiveLayer(size_t l)
+        {
+            if(l >= kNumLayers || (first_record && record))
+                return;
+            if(!first_record && dirty_len_[l])
+                return;
+            if(record)
+                filled_[active_] = true; // the overdub leaves this one behind, recorded
+            active_ = l;
         }
 
     private:
-        FileSampler looper;
+        inline FileSampler& Master() { return layers_[master_]; }
+
+        // the first recording goes to the active layer, if it's clean
+        size_t ActiveForFirstRecording() const
+        {
+            if(!dirty_len_[active_])
+                return active_;
+            for(size_t l = 0; l < kNumLayers; l++)
+                if(!dirty_len_[l])
+                    return l;
+            return active_; // all still clearing: CheckRecordReady takes this one over anyway
+        }
+
+        // the loop's length is now known: every layer takes it, and the master's position
+        void FollowMaster()
+        {
+            for(size_t l = 0; l < kNumLayers; l++)
+            {
+                if(l == master_)
+                    continue;
+                mem_[l]->length = mem_[master_]->length;
+                layers_[l].SyncFrom(Master());
+            }
+        }
+
+        FileSampler layers_[kNumLayers];
+        RamBufferMemory* mem_[kNumLayers];
+        bool filled_[kNumLayers];
+        volatile size_t dirty_len_[kNumLayers]; // samples left to clear, from the end down
+        size_t active_, master_;
+
         bool record, first_record, record_target;
         bool playing, play_target;
         uint32_t loop_end;

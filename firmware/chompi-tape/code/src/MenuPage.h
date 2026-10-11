@@ -405,6 +405,9 @@ namespace chompi
             else
                 SetSmtLedFloat(mode, 0.f, 0.f, 0.f);
 
+            if(OnLoopPage())
+                DrawLayerSelect();
+
             // ========   send the data   =========
             fill_led_data();
         }
@@ -810,6 +813,16 @@ namespace chompi
             case static_cast<uint16_t>(Hardware::SwId::KEY_16): // Jammi mode bank, fall through
             case static_cast<uint16_t>(Hardware::SwId::KEY_17): // Cubbi mode bank
             {                
+                if(OnLoopPage())
+                {
+                    // PORTA loop page: C# shows the layers on keys 1-4, D# will be the projects
+                    if(rising && buttonID == static_cast<uint16_t>(Hardware::SwId::KEY_16))
+                        layer_select_ = !layer_select_;
+                    else if(!rising)
+                        return false; // note off falls through
+                    break;
+                }
+
                 if(rising && !no_sd_card_)
                 {
                     VoiceMode mode;
@@ -966,6 +979,14 @@ namespace chompi
                     fx_->IncrementLooperDubGain(gain);
                 }
 
+                if(rising && layer_select_ && OnLoopPage() && preset_mode == PresetMode::NONE)
+                {
+                    const size_t key = KeyToSlot(buttonID);
+                    if(key >= 1 && key <= kNumLayers)
+                        fx_->SetLooperLayer(key - 1);
+                    break;
+                }
+
                 if (rising)
                 {
                     size_t slot_req = KeyToSlot(buttonID);
@@ -1054,6 +1075,7 @@ namespace chompi
             pitch_reset = false;
             chompi_key_pressed = true;
             opened_on_loop_page_ = switch_state;
+            layer_select_ = false;
 
             if(quantized_pitch_)
             {
@@ -1070,6 +1092,34 @@ namespace chompi
         }
 
         inline void SetSwitchState(bool state) { switch_state = state; }
+
+        // PORTA: toggle up is the loop page
+        inline bool OnLoopPage() const { return switch_state; }
+
+        // loop page: C# lit, and while the layers show, keys 1-4 are the layers: green the one recorded into,
+        // white recorded, dim empty, dim red still being cleared
+        void DrawLayerSelect()
+        {
+            SetSmtLedFloat(0, layer_select_ ? 1.f : .25f, layer_select_ ? 1.f : .25f, layer_select_ ? 1.f : .25f);
+            SetSmtLedFloat(1, 0.f, 0.f, 0.f);
+            if(!layer_select_)
+                return;
+
+            for(uint8_t i = 1; i < 16; i++)
+            {
+                const size_t layer = i - 1;
+                if(layer >= kNumLayers)
+                    SetSmtLedFloat(25 - i, 0.f, 0.f, 0.f);
+                else if(layer == fx_->GetLooperLayer())
+                    SetSmtLedFloat(25 - i, green[0], green[1], green[2]);
+                else if(!fx_->IsLooperLayerReady(layer))
+                    SetSmtLedFloat(25 - i, .3f * red[0], .3f * red[1], .3f * red[2]);
+                else if(fx_->IsLooperLayerFilled(layer))
+                    SetSmtLedFloat(25 - i, 1.f, 1.f, 1.f);
+                else
+                    SetSmtLedFloat(25 - i, .15f, .15f, .15f);
+            }
+        }
 
         bool IsClosable()
         { 
@@ -1132,6 +1182,7 @@ namespace chompi
 
         bool chompi_key_pressed = false;
         bool opened_on_loop_page_ = false; // the toggle when the menu opened, the menu closes if it moves
+        bool layer_select_ = false;        // loop page: C# pressed, keys 1-4 are the layers
         bool blink_state = true;
         uint32_t blink_startt;
         uint32_t last_blink;

@@ -28,8 +28,9 @@ OptionsManager options;
 daisysp::Reverb DSY_DTCMRAM_BSS reverb;
 chompi::InterpolatedDelayLine::AudioSample DSY_SDRAM_BSS del_mem[kMaxDelayTime];
 
-RamBufferMemory loop_buff;
-int16_t DSY_SDRAM_BSS loop_mem[kMaxRamBuffSize]; 
+// PORTA: the looper's layers, 55 s each
+RamBufferMemory loop_buff[kNumLayers];
+int16_t DSY_SDRAM_BSS loop_mem[kNumLayers][kMaxRamBuffSize];
 
 RamBufferMemory chompi_buff;
 int16_t DSY_SDRAM_BSS chompi_mem[kMaxRamBuffSize]; 
@@ -160,6 +161,7 @@ void CheckSDCardMounted()
 void SDCallback(void* data)
 {
     const uint32_t now = System::GetNow();
+    engine.ServiceLooper(); // clears old layers in the background
     if (now - sd_checkt > 1000 && !no_sd_card && !booting)
     {
         sd_checkt = now;
@@ -386,10 +388,11 @@ int main(void)
 
     // meter.Init(hw.seed.AudioSampleRate(), hw.seed.AudioBlockSize());
 
-    loop_buff.Init(&loop_mem[0]);
+    for(size_t l = 0; l < kNumLayers; l++)
+        loop_buff[l].Init(&loop_mem[l][0]);
     chompi_buff.Init(&chompi_mem[0]);
     engine.Init(hw.seed.AudioSampleRate(), &reverb, &del_mem[0], 
-                &loop_buff, &chompi_buff, 
+                loop_buff, &chompi_buff, 
                 options.record_latch, options.tape_slew_on,
                 MonitorMode(options.monitor_position));
 
@@ -432,7 +435,7 @@ int main(void)
     daisy::System::Delay(1); // Wait a sec
     hw.usb_sw.Write(true);     // take USB control
     
-    copier.Init(hw.seed.AudioSampleRate(), &engine, &chompi_buff, &loop_buff);
+    copier.Init(hw.seed.AudioSampleRate(), &engine, &chompi_buff, &loop_buff[0]); // looper files are layer 1
     engine.FillDefaultSample(hw.seed.AudioSampleRate());
 
     while (1)

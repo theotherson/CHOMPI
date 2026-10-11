@@ -5,8 +5,9 @@
 namespace daisy
 {
 
-    static const size_t kMaxRamBuffSize = 31694848 / 2;
-    // total size = 31694848, which goes evenly into 8K, which means SDRAM page alignment
+    // PORTA: 55 s of 48 kHz stereo (plus the WAV header), rounded up to a whole 8K for SDRAM page alignment.
+    // The sample buffer and the four looper layers are each this size.
+    static const size_t kMaxRamBuffSize = 10567680 / 2;
 
     // just a buffer with its length
     struct RamBufferMemory
@@ -107,6 +108,13 @@ namespace daisy
         }
 
         inline size_t GetSize() { return buff->length; }
+
+        // PORTA: play in step with another buffer: same heads, own memory
+        void CopyHeads(const RamBuffer& other)
+        {
+            read_head  = other.read_head;
+            write_head = other.write_head;
+        }
 
         inline size_t GetReadHead() { return read_head; }
         inline bool ReadEOF() { return read_head >= buff->length || read_head >= kMaxRamBuffSize; }

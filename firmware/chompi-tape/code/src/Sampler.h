@@ -319,6 +319,38 @@ namespace daisy
 
         void ResetRamBuff() { ram_buff.Reset(); }
 
+        /** PORTA: take over master's playback state (position, speed, scrub, direction, envelopes) so this
+         *  layer plays in lockstep with it from here on. Nothing of master's audio comes along. */
+        void SyncFrom(const FileSampler& master)
+        {
+            ram_buff.CopyHeads(master.ram_buff);
+            reset             = master.reset;
+            reset_env         = master.reset_env;
+            varispeed_factor  = master.varispeed_factor;
+            rpos_frac_        = master.rpos_frac_;
+            old_rpos_frac     = master.old_rpos_frac;
+            reverse_          = master.reverse_;
+            scrub_            = master.scrub_;
+            scrub_target_     = master.scrub_target_;
+            turn_period_count_ = master.turn_period_count_;
+            turn_count_       = master.turn_count_;
+            loop_env          = master.loop_env;
+            loop_env_dec      = master.loop_env_dec;
+            rev_env           = master.rev_env;
+            rev_env_dec       = master.rev_env_dec;
+            dub_gain_         = master.dub_gain_;
+            dub_gain_target_  = master.dub_gain_target_;
+
+            old_samps_l.Clear();
+            old_samps_r.Clear();
+            al = bl = ar = br = 0;
+            last_l = last_r = 0;
+            old_inl = old_inr = 0;
+            input_env = 0.f;
+            old_rec = false;
+            rev_pushback = true;
+        }
+
         RamBuffer ram_buff;
         volatile bool reset;
         float reset_env = 1.f;
