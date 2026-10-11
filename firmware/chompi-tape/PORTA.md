@@ -79,8 +79,11 @@ so there the arp needs CHOMPI held.
 - Patterns and latch use the same gestures everywhere. The plain G# tap works wherever G# isn't a note:
   the loop page and one-shot mode.
 - Latch: notes when nothing plays, the arp when it does.
-- **(open)** Pattern keys: suggested key 1 off; keys 2–6 sequence (order pressed), up, down, ping-pong, random;
-  keys 7–11 TEMPO's rest patterns?
+- Pattern keys (white keys while the patterns show):
+
+  | Key | 1 | 2 | 3 | 4 | 5 | 6 | 7–11 |
+  |---|---|---|---|---|---|---|---|
+  | | off | sequence (order pressed) | up | down | ping-pong | random | TEMPO's rest patterns |
 
 ### Encoders, wheel, play/loop keys (open)
 
