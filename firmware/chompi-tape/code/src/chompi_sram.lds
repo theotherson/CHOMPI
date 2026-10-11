@@ -13,8 +13,11 @@ MEMORY
 {
 	FLASH (RX)    : ORIGIN = 0x08000000, LENGTH = 128K
 	DTCMRAM (RWX) : ORIGIN = 0x20000000, LENGTH = 128K
-	SRAM_EXEC (RWX): ORIGIN = 0x24000000, LENGTH = 236K - 768
-	SRAM (RWX)    : ORIGIN = 0x24000000 + 236K - 768, LENGTH = 276K + 768
+	/* The 512K of AXI SRAM, split between the image (code, constants, .data's load copy) and
+	 * .data/.bss. Data was 276K, mostly MIDI queues; with those cut it uses ~222K, so code gets
+	 * the rest. The bootloader copies up to 480K and the launcher 512K, so either end can move. */
+	SRAM_EXEC (RWX): ORIGIN = 0x24000000, LENGTH = 280K
+	SRAM (RWX)    : ORIGIN = 0x24000000 + 280K, LENGTH = 232K
 	RAM_D2 (RWX)  : ORIGIN = 0x30000000, LENGTH = 32K
 	RAM_D2CACHE (RWX)  : ORIGIN = 0x30000000 + 32K, LENGTH = 288K - 32K
 	RAM_D3 (RWX)  : ORIGIN = 0x38000000, LENGTH = 64K
