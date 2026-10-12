@@ -210,7 +210,17 @@ namespace daisy
                 if(play_btn && !record_btn && !reset && !toggle_play && (record || IsPlaying())) // rising edge and recording or playing
                     TogglePlaying();
                 if(record_btn && !play_btn && !reset && !toggle_record)
-                    ToggleRecord();
+                {
+                    // PORTA: while stopped, the loop key arms the selected layer; the next note or loop press
+                    // starts the take. Armed, playing or recording, it's TAPE's: start, overdub or stop.
+                    if(!record && !record_arm && !IsPlaying() && !bouncing_)
+                    {
+                        record_arm = true;
+                        toggle_record = true;
+                    }
+                    else
+                        ToggleRecord();
+                }
             }
             if(elapsed >= kRecordClearTimeout)
             {

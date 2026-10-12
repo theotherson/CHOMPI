@@ -1070,8 +1070,8 @@ namespace chompi
                 {
                     // the layer picker: tap a layer to turn it on or off; hold it 2 s to arm recording into it
                     // (it blinks red), which closes the picker on release, the next note played starts it.
-                    // CHOMPI + tap a layer: hear only that one, until tapped again (or the picker closes);
-                    // CHOMPI + hold it 1 s: bounce the other unmuted layers into it. Other white keys: nothing.
+                    // CHOMPI + tap a layer: select it, ending any audition; CHOMPI + hold it 2 s: audition it
+                    // (only it plays, until held again or the picker closes). Other white keys: nothing.
                     const size_t key = KeyToSlot(buttonID);
                     if(key >= 1 && key <= kNumLayers)
                     {
@@ -1086,9 +1086,13 @@ namespace chompi
                         {
                             if(held_shift_)
                             {
-                                // CHOMPI + tap: audition it, or stop; after a 1 s hold it has bounced instead
+                                // CHOMPI + tap: select it (even if it already is) and stop any audition;
+                                // after a 2 s hold it has toggled its audition instead
                                 if(!arm_fired_)
-                                    fx_->SetLooperAudition(fx_->GetLooperAudition() == held_layer_ ? -1 : held_layer_);
+                                {
+                                    fx_->SetLooperAudition(-1);
+                                    fx_->SetLooperLayer(key - 1);
+                                }
                             }
                             else if(!arm_fired_)
                                 fx_->ToggleLooperMute(key - 1);
@@ -1261,10 +1265,9 @@ namespace chompi
                 fx_->ArmLooperLayer(size_t(held_layer_));
                 arm_fired_ = true;
             }
-            else if(held_layer_ >= 0 && held_shift_ && !arm_fired_ && now - held_since_ >= kBounceHoldMs)
+            else if(held_layer_ >= 0 && held_shift_ && !arm_fired_ && now - held_since_ >= kAuditionHoldMs)
             {
-                fx_->SetLooperAudition(-1);
-                fx_->BounceLooperInto(size_t(held_layer_));
+                fx_->SetLooperAudition(fx_->GetLooperAudition() == held_layer_ ? -1 : held_layer_);
                 arm_fired_ = true;
             }
             DrawLayerKeys(fx_, now, held_layer_ >= 0 && arm_fired_ && !held_shift_ ? held_layer_ : -1);
@@ -1339,9 +1342,9 @@ namespace chompi
         int held_layer_ = -1;              // the layer key held down, for the bounce
         uint32_t held_since_ = 0;
         bool held_shift_ = false;          // CHOMPI was down when the layer key went down
-        bool arm_fired_ = false;           // the hold did its thing: armed (2 s) or bounced (CHOMPI, 1 s)
-        static constexpr uint32_t kArmHoldMs    = 2000;
-        static constexpr uint32_t kBounceHoldMs = 1000;
+        bool arm_fired_ = false;           // the 2 s hold did its thing: armed, or (CHOMPI) audition toggled
+        static constexpr uint32_t kArmHoldMs      = 2000;
+        static constexpr uint32_t kAuditionHoldMs = 2000;
         bool blink_state = true;
         uint32_t blink_startt;
         uint32_t last_blink;
