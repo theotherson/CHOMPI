@@ -172,8 +172,26 @@ namespace daisy
         }
         inline bool Muted(size_t l) const { return l < kNumLayers && muted_[l]; }
 
-        // hear only layer l while it's auditioned, -1 for none
-        inline void SetAudition(int l) { audition_ = l < int(kNumLayers) ? l : -1; }
+        /** hear only layer l while it's auditioned, -1 for none. A stopped looper plays for the audition,
+         *  from the top, and stops again after, like auditioning a sample. */
+        void SetAudition(int l)
+        {
+            if(l >= int(kNumLayers))
+                l = -1;
+            if(l >= 0 && !first_record && !record && !playing && !play_target)
+            {
+                for(auto& layer : layers_)
+                    layer.JumpToStart();
+                playing = true;
+                audition_played_ = true;
+            }
+            else if(l < 0 && audition_played_)
+            {
+                playing = false;
+                audition_played_ = false;
+            }
+            audition_ = l;
+        }
         inline int Audition() const { return audition_; }
 
 
@@ -357,6 +375,7 @@ namespace daisy
         void TogglePlaying()
         {
             toggle_play = true;
+            audition_played_ = false; // play pressed: the playback is the player's now, the audition won't stop it
 
             if(first_record && !record)
                 return; // do nothing on empty looper and not recording
@@ -420,6 +439,8 @@ namespace daisy
         void Reset()
         {
             bouncing_ = false; // the layers are being cleared anyway
+            audition_ = -1;
+            audition_played_ = false;
             for(auto& m : muted_)
                 m = false;
             ClearWindow();
@@ -557,6 +578,7 @@ namespace daisy
 
         bool muted_[kNumLayers];
         volatile int audition_ = -1;
+        bool audition_played_ = false; // the audition started the playback, ending it stops it
         float layer_gain_[kNumLayers];
 
         volatile bool bouncing_ = false;
