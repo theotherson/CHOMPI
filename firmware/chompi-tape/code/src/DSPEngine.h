@@ -1340,7 +1340,8 @@ namespace daisy
         inline size_t LooperBounceDest() const { return looper.BounceDest(); }
         inline void ToggleLooperMute(size_t layer) { looper.ToggleMute(layer); }
         inline bool IsLooperLayerMuted(size_t layer) const { return looper.Muted(layer); }
-        inline void SoloLooperLayer(size_t layer) { looper.Solo(layer); }
+        inline void SetLooperAudition(int layer) { looper.SetAudition(layer); } // -1: none
+        inline void ArmLooperOnNote() { looper.ArmOnNote(); }
 
         /** arm the looper: it starts recording (first take or overdub) when the input crosses threshold */
         void ArmLooper(float threshold)

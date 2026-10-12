@@ -79,8 +79,10 @@ namespace daisy
                         int16_t aor = 0;
                         layers_[l].PopStereoSamps(rec_here ? in_l : 0, rec_here ? in_r : 0, &aol, &aor,
                                                   rec_here, playing);
-                        // a muted layer fades out over a few ms rather than clicking
-                        layer_gain_[l] += ((muted_[l] ? 0.f : 1.f) - layer_gain_[l]) * .002f;
+                        // a muted layer fades out over a few ms rather than clicking; auditioning one layer
+                        // (CHOMPI + its key) plays only that one, mutes or not
+                        const bool audible = audition_ >= 0 ? int(l) == audition_ : !muted_[l];
+                        layer_gain_[l] += ((audible ? 1.f : 0.f) - layer_gain_[l]) * .002f;
 
                         // a layer waiting to be cleared stays silent, except while the reset fades everything out
                         if(!dirty_len_[l] || Master().IsResetting())
@@ -161,7 +163,7 @@ namespace daisy
         }
         inline bool IsBouncing() const { return bouncing_; }
 
-        /** Mute and solo, as on x0x: a muted layer keeps playing silently, in step */
+        /** Mute, as on x0x: a muted layer keeps playing silently, in step */
         void ToggleMute(size_t l)
         {
             if(l < kNumLayers)
@@ -169,17 +171,14 @@ namespace daisy
         }
         inline bool Muted(size_t l) const { return l < kNumLayers && muted_[l]; }
 
-        // solo l; if it already is the only one playing, bring them all back
-        void Solo(size_t l)
+        // hear only layer l while it's auditioned, -1 for none
+        inline void SetAudition(int l) { audition_ = l < int(kNumLayers) ? l : -1; }
+
+        // arm the active layer: recording into it starts with the next note played, as TAPE's record arm
+        void ArmOnNote()
         {
-            if(l >= kNumLayers)
-                return;
-            bool alone = !muted_[l];
-            for(size_t o = 0; o < kNumLayers; o++)
-                if(o != l && !muted_[o])
-                    alone = false;
-            for(size_t o = 0; o < kNumLayers; o++)
-                muted_[o] = alone ? false : o != l;
+            if(!record && !bouncing_)
+                record_arm = true;
         }
         inline size_t BounceDest() const { return bounce_dest_; }
 
@@ -548,6 +547,7 @@ namespace daisy
         size_t active_, master_;
 
         bool muted_[kNumLayers];
+        volatile int audition_ = -1;
         float layer_gain_[kNumLayers];
 
         volatile bool bouncing_ = false;

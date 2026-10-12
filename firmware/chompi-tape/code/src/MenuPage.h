@@ -1025,6 +1025,27 @@ namespace chompi
                     // the sample picker: a key picks the bank's sample (or, for one-shots, the kit) and
                     // closes it, back to the normal keyboard
                     const size_t slot = KeyToSlot(buttonID);
+
+                    // CHOMPI + a slot auditions it, the picker stays open. One-shots play through the normal
+                    // page; a chromatic sample is selected and played at its own pitch.
+                    if(chompi_key_pressed && slot != kSlotNone && !no_sd_card_)
+                    {
+                        if(fx_->GetVoiceMode() == VoiceMode::CUBBI)
+                            return false;
+                        if(rising && fx_->GetFileExists(slot - 1))
+                        {
+                            ss_bank = fx_->GetBank();
+                            ss_mode = fx_->GetVoiceMode();
+                            selected_slot = slot;
+                            SetVoiceSlot(selected_slot);
+                            fx_->request_fifo.PushBack(KeyRequest(KeyRequest::Type::START, 0.f, buttonID, 127.f));
+                            break;
+                        }
+                        if(!rising)
+                            return false; // the normal page stops it
+                        break;
+                    }
+
                     if(rising && slot != kSlotNone && !no_sd_card_)
                     {
                         if(fx_->GetVoiceMode() == VoiceMode::CUBBI)
@@ -1045,9 +1066,9 @@ namespace chompi
 
                 if(latch_ == Latch::LAYERS && OnLoopPage() && preset_mode == PresetMode::NONE)
                 {
-                    // the layer picker: tap a layer to record into it, which closes the picker; hold 2 s to
-                    // solo it (again: all back). With CHOMPI: tap to mute or unmute it, hold 1 s to bounce
-                    // the others into it. The other white keys do nothing.
+                    // the layer picker: tap a layer to turn it on or off; hold it 2 s to arm recording into it
+                    // (it blinks red), which closes the picker on release, the next note played starts it.
+                    // CHOMPI + a layer: hear only that one while it's held. The other white keys do nothing.
                     const size_t key = KeyToSlot(buttonID);
                     if(key >= 1 && key <= kNumLayers)
                     {
@@ -1056,16 +1077,18 @@ namespace chompi
                             held_layer_   = int(key - 1);
                             held_since_   = System::GetNow();
                             held_shift_   = chompi_key_pressed;
-                            bounce_fired_ = false;
-                            if(!held_shift_)
-                                fx_->SetLooperLayer(key - 1);
+                            arm_fired_ = false;
+                            if(held_shift_)
+                                fx_->SetLooperAudition(held_layer_);
                         }
                         else if(held_layer_ == int(key - 1))
                         {
-                            if(held_shift_ && !bounce_fired_)
+                            if(held_shift_)
+                                fx_->SetLooperAudition(-1);
+                            else if(!arm_fired_)
                                 fx_->ToggleLooperMute(key - 1);
-                            else if(!held_shift_ && !bounce_fired_)
-                                latch_ = Latch::NONE; // picked: back to the keyboard
+                            else
+                                latch_ = Latch::NONE; // armed: back to the keyboard for the note
                             held_layer_ = -1;
                         }
                     }
@@ -1220,20 +1243,13 @@ namespace chompi
                 return;
 
             const uint32_t now = System::GetNow();
-            if(held_layer_ >= 0 && !bounce_fired_)
+            if(held_layer_ >= 0 && !held_shift_ && !arm_fired_ && now - held_since_ >= kArmHoldMs)
             {
-                if(held_shift_ && now - held_since_ >= kBounceHoldMs)
-                {
-                    fx_->BounceLooperInto(size_t(held_layer_));
-                    bounce_fired_ = true;
-                }
-                else if(!held_shift_ && now - held_since_ >= kSoloHoldMs)
-                {
-                    fx_->SoloLooperLayer(size_t(held_layer_));
-                    bounce_fired_ = true;
-                }
+                fx_->SetLooperLayer(size_t(held_layer_));
+                fx_->ArmLooperOnNote();
+                arm_fired_ = true;
             }
-            DrawLayerKeys(fx_, now);
+            DrawLayerKeys(fx_, now, held_layer_ >= 0 && arm_fired_ ? held_layer_ : -1);
         }
 
         bool IsClosable()
@@ -1306,9 +1322,8 @@ namespace chompi
         int held_layer_ = -1;              // the layer key held down, for the bounce
         uint32_t held_since_ = 0;
         bool held_shift_ = false;          // CHOMPI was down when the layer key went down
-        bool bounce_fired_ = false;        // the hold did its thing (bounce or solo)
-        static constexpr uint32_t kBounceHoldMs = 1000;
-        static constexpr uint32_t kSoloHoldMs   = 2000; // as x0x
+        bool arm_fired_ = false;           // the 2 s hold armed the layer
+        static constexpr uint32_t kArmHoldMs = 2000;
         bool blink_state = true;
         uint32_t blink_startt;
         uint32_t last_blink;

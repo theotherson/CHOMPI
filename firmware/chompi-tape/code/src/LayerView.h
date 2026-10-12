@@ -6,10 +6,10 @@
 
 namespace chompi
 {
-    /** PORTA loop page, layer view: white keys 1-4 are the layers, the rest are dark.
-     *  Flashing white: being bounced into. Green: recording into it. White: recorded. Dim: empty.
-     *  Dim red: being cleared. A muted layer blinks slowly in its colour. */
-    inline void DrawLayerKeys(daisy::Engine* fx, uint32_t now)
+    /** PORTA loop page, layer picker: white keys 1-4 are the layers, the rest are dark.
+     *  Flashing white: being bounced into. Blinking red: armed (held 2 s). Green: the one recorded into.
+     *  White: recorded. Dim: empty. Dim red: being cleared. An off (muted) layer is nearly dark. */
+    inline void DrawLayerKeys(daisy::Engine* fx, uint32_t now, int armed = -1)
     {
         for(uint8_t key = 1; key < 16; key++)
         {
@@ -19,6 +19,8 @@ namespace chompi
             {
                 if(fx->IsLooperBouncing() && layer == fx->LooperBounceDest())
                     r = g = b = (now / 100) % 2 ? 1.f : 0.f;
+                else if(int(layer) == armed)
+                    r = (now / 150) % 2 ? 1.f : 0.f;
                 else if(!fx->IsLooperLayerReady(layer))
                     r = .3f;
                 else if(layer == fx->GetLooperLayer())
@@ -28,11 +30,11 @@ namespace chompi
                 else
                     r = g = b = .15f;
 
-                if(fx->IsLooperLayerMuted(layer) && (now / 400) % 2)
+                if(fx->IsLooperLayerMuted(layer) && int(layer) != armed)
                 {
-                    r *= .1f;
-                    g *= .1f;
-                    b *= .1f;
+                    r *= .08f;
+                    g *= .08f;
+                    b *= .08f;
                 }
             }
             SetSmtLedFloat(25 - key, r, g, b);
