@@ -377,12 +377,16 @@ namespace chompi
                 SetSmtLedFloat(7, 0.f, 0.f, 0.f);
             }
 
-            // FX pre / post looper, one key: yellow pre, teal post. Mid D# is free for now.
+            // FX pre / post looper, one key: yellow pre, teal post. Mid D#: the sampler page's latch, white
+            // when on.
             if(fx_->GetFxPreLooper())
                 SetSmtLedFloat(5, yellow[0], yellow[1], yellow[2]);
             else
                 SetSmtLedFloat(5, teal[0], teal[1], teal[2]);
-            SetSmtLedFloat(6, 0.f, 0.f, 0.f);
+            if(latch_ == Latch::SAMPLER && !OnLoopPage())
+                SetSmtLedFloat(6, hold_ ? 1.f : .1f, hold_ ? 1.f : .1f, hold_ ? 1.f : .1f);
+            else
+                SetSmtLedFloat(6, 0.f, 0.f, 0.f);
 
             // Input, one key whose colour says which: pink mic, blue aux, yellow resample (sampler page).
             // Low F# (slices) is free for now; low G# is the loop page's layer picker, drawn below.
@@ -972,9 +976,16 @@ namespace chompi
                 break;
             }
 
-            // PORTA: mid D#, loop length, not built yet
+            // PORTA: mid D#. On the sampler page it's the latch: a key played keeps sounding after it's
+            // let go, to edit it (pitch, start, end) while it plays. Off stops it.
             case static_cast<uint16_t>(Hardware::SwId::KEY_22):
             {
+                if(latch_ == Latch::SAMPLER && !OnLoopPage())
+                {
+                    if(rising)
+                        SetHold(!hold_);
+                    break;
+                }
                 if(!rising)
                     return false; // note off falls through
                 break;
@@ -1076,8 +1087,12 @@ namespace chompi
                     if(slot == 15)
                     {
                         if(rising)
+                        {
+                            ReleaseHeld();
                             fx_->SamplerKeyDown();
-                        else
+                            buffer_held_ = hold_;
+                        }
+                        else if(!hold_)
                             fx_->SamplerKeyUp();
                         break;
                     }
@@ -1090,6 +1105,16 @@ namespace chompi
                         }
                         else if(!rising && pick_slot_ == slot)
                             pick_slot_ = kSlotNone;
+                        if(hold_) // latched: a new key replaces the held one, letting go doesn't stop it
+                        {
+                            if(!rising)
+                                break;
+                            if(fx_->GetFileExists(slot - 1))
+                            {
+                                ReleaseHeld();
+                                held_key_ = buttonID;
+                            }
+                        }
                         if(fx_->GetVoiceMode() == VoiceMode::CUBBI)
                             return false; // one-shots play (and stop) through the normal page
                         if(rising && fx_->GetFileExists(slot - 1))
@@ -1388,8 +1413,27 @@ namespace chompi
         inline bool OnLoopPage() const { return switch_state; }
 
         // open or close a picker; closing the layer picker ends an audition and drops bounce sources
+        /** PORTA sampler page latch (mid D#): off stops whatever it was holding */
+        void SetHold(bool on)
+        {
+            if(!on)
+                ReleaseHeld();
+            hold_ = on;
+        }
+        void ReleaseHeld()
+        {
+            if(held_key_ >= 0)
+                fx_->request_fifo.PushBack(KeyRequest(KeyRequest::Type::STOP, 0, held_key_, 127.f));
+            held_key_ = -1;
+            if(buffer_held_)
+                fx_->SamplerKeyUp();
+            buffer_held_ = false;
+        }
+
         void SetLatch(Latch latch)
         {
+            if(latch != Latch::SAMPLER && hold_ && fx_)
+                SetHold(false);
             if(latch != Latch::SAMPLER)
                 pick_slot_ = kSlotNone;
             if(latch != Latch::LAYERS && fx_)
@@ -1520,6 +1564,9 @@ namespace chompi
         Latch latch_ = Latch::NONE;
         bool open_unshifted_ = false; // opened for the sampler page, not by CHOMPI
         bool loading_ = false;        // a sample is being loaded into the sample buffer
+        bool hold_ = false;         // sampler page latch (mid D#)
+        int held_key_ = -1;         // the key it's holding, if a slot
+        bool buffer_held_ = false;  // or the buffer key
         size_t pick_slot_ = kSlotNone; // sampler page picker: the slot held down, loading at kLoadHoldMs
         uint32_t pick_since_ = 0;
         static constexpr uint32_t kLoadHoldMs = 500;        // loop page: a picker latched open by C#/D# or G#
