@@ -1330,67 +1330,79 @@ namespace daisy
 
         float SetLooperPitchQuantized(int16_t turns, float enc_pos)
         {
-            if (IsLooperPlaying())
+            if(!IsLooperPlaying())
+                return enc_pos;
+            return StepPitch(looper, looper_fifth, looper_encoder_chunk, turns, enc_pos);
+        }
+
+        /** PORTA sampler page: CHOMPI + wheel steps the sample loop's speed, as the looper's */
+        void SetSamplerPitchStepped(int16_t turns)
+        {
+            if(sampler_.IsPlaying())
+                sampler_speed_ = StepPitch(sampler_, sampler_fifth_, sampler_chunk_, turns, sampler_speed_);
+        }
+
+        /** TAPE's stepped looper speed, for either looper: a fifth then a fourth per step (two make an
+         *  octave), through zero into reverse at the same speeds. Returns the wheel position for it. */
+        float StepPitch(LooperEngine& lp, bool& fifth_step, float& chunk, int16_t turns, float enc_pos)
+        {
+            chunk += turns * .25f;
+            if(chunk >= 1.f || chunk <= -1.f)
             {
-                looper_encoder_chunk += turns * .25f;
-                if(looper_encoder_chunk >= 1.f || looper_encoder_chunk <= -1.f)
+                // get current semi
+                chunk = round(chunk);
+
+                float pitch = lp.GetPitch();
+                float orig_pitch = pitch;
+
+                // snap to fifths and octaves
+                // calculate the consts via 2^(x/12) e.g. 2^(-5/12) for down 5 semis
+                float mul;
+                if(pitch > 0.f)
                 {
-                    // get current semi
-                    looper_encoder_chunk = round(looper_encoder_chunk);
-
-                    float pitch = GetLooperPitch();
-                    float orig_pitch = pitch;
-
-                    // snap to fifths and octaves
-                    // calculate the consts via 2^(x/12) e.g. 2^(-5/12) for down 5 semis
-                    float mul;
-                    if(pitch > 0.f)
-                    {
-                        if(looper_fifth)
-                            mul = looper_encoder_chunk < 0 ? .667419927085f : 1.33483985417f;
-                        else
-                            mul = looper_encoder_chunk < 0 ? .749153538438f : 1.49830707688f;
-                    }
+                    if(fifth_step)
+                        mul = chunk < 0 ? .667419927085f : 1.33483985417f;
                     else
-                    {
-                        if(looper_fifth)
-                            mul = looper_encoder_chunk < 0 ? 1.33483985417f : .667419927085f;
-                        else
-                            mul = looper_encoder_chunk < 0 ? 1.49830707688f : .749153538438f;                            
-                    }
-
-                    // snap to next note, return of out of bounds
-                    pitch *= mul;
-                    if(pitch > 2.f || pitch < -2.f)
-                        return enc_pos;
-
-                    looper_fifth = !looper_fifth;
-                    looper_encoder_chunk = 0.f;
-
-                    // handle reverse
-                    if(pitch < .0625 && pitch > -.0625)
-                    {
-                        // we weren't already in the turn-around zone
-                        if(orig_pitch > .0625 || orig_pitch < -.0625)
-                        {
-                            looper_fifth = !looper_fifth;
-                            pitch = orig_pitch;
-                            pitch *= -1.f;
-                        }
-                        // we were already in the zone, and we're headed over the middle
-                        else if((GetLooperReverse() && turns > 0) || (!GetLooperReverse() && turns < 0))
-                        {
-                            looper_fifth = !looper_fifth;
-                            pitch = orig_pitch;
-                            pitch *= -1.f;
-                        }
-                    }
-
-                    SetLooperPitch(pitch);
-
-                    return pitch * .25f + .5f;
-
+                        mul = chunk < 0 ? .749153538438f : 1.49830707688f;
                 }
+                else
+                {
+                    if(fifth_step)
+                        mul = chunk < 0 ? 1.33483985417f : .667419927085f;
+                    else
+                        mul = chunk < 0 ? 1.49830707688f : .749153538438f;                            
+                }
+
+                // snap to next note, return of out of bounds
+                pitch *= mul;
+                if(pitch > 2.f || pitch < -2.f)
+                    return enc_pos;
+
+                fifth_step = !fifth_step;
+                chunk = 0.f;
+
+                // handle reverse
+                if(pitch < .0625 && pitch > -.0625)
+                {
+                    // we weren't already in the turn-around zone
+                    if(orig_pitch > .0625 || orig_pitch < -.0625)
+                    {
+                        fifth_step = !fifth_step;
+                        pitch = orig_pitch;
+                        pitch *= -1.f;
+                    }
+                    // we were already in the zone, and we're headed over the middle
+                    else if((lp.GetReverse() && turns > 0) || (!lp.GetReverse() && turns < 0))
+                    {
+                        fifth_step = !fifth_step;
+                        pitch = orig_pitch;
+                        pitch *= -1.f;
+                    }
+                }
+
+                lp.SetPitch(pitch);
+
+                return pitch * .25f + .5f;
             }
 
             return enc_pos;
@@ -1473,6 +1485,8 @@ namespace daisy
                 sampler_win_s_ = 0.f;
                 sampler_win_e_ = 1.f;
                 SetSamplerSpeed(.75f);
+                sampler_fifth_ = false;
+                sampler_chunk_ = 0.f;
             }
             sampler_.StartTake();
         }
@@ -1489,6 +1503,8 @@ namespace daisy
             sampler_win_s_ = 0.f;
             sampler_win_e_ = 1.f;
             sampler_speed_ = .75f; // OpenFile / the reset put it back to 1x
+            sampler_fifth_ = false;
+            sampler_chunk_ = 0.f;
             sampler_.Reset();
         }
         // threshold 0 starts now
@@ -1539,6 +1555,8 @@ namespace daisy
             sampler_win_s_ = 0.f; // the whole of it
             sampler_win_e_ = 1.f;
             sampler_speed_ = .75f; // OpenFile / the reset put it back to 1x
+            sampler_fifth_ = false;
+            sampler_chunk_ = 0.f;
             sampler_.OpenFile();
             sampler_.PlayFromStart();
             UseSamplerSample();
@@ -1870,6 +1888,8 @@ namespace daisy
         float sampler_in_[2][kSamplerBlock] = {};   // the input the sample loop records, a block late
         float sampler_win_s_ = 0.f, sampler_win_e_ = 1.f;
         float sampler_speed_ = .75f;
+        bool sampler_fifth_ = false;  // stepped speed, as the looper's
+        float sampler_chunk_ = 0.f;
         bool sampler_page_ = false;
         int16_t* bake_mem_ = nullptr;
         size_t bake_cap_ = 0;

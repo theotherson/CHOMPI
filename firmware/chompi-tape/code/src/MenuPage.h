@@ -595,16 +595,18 @@ namespace chompi
                 }
                 else if(encoderID == 4)
                 {
-                    if(quantized_pitch_)
-                        enc_values[0][4] = fx_->SetLooperPitchQuantized(turns, enc_values[0][4]);
+                    // PORTA: CHOMPI + wheel always steps (octaves and fifths, through reverse), whatever TAPE's
+                    // quantize option says; on the sampler page it's the sample loop's speed
+                    float speed;
+                    if(OnLoopPage())
+                        speed = enc_values[0][4] = fx_->SetLooperPitchQuantized(turns, enc_values[0][4]);
                     else
                     {
-                        enc_values[0][4] += turns * kEncoderFineStep;
-                        enc_values[0][4] = fclamp(enc_values[0][4], 0.f, 1.f);
-                        fx_->SetLooperPitchFree(enc_values[0][4]);
+                        fx_->SetSamplerPitchStepped(turns);
+                        speed = fx_->SamplerSpeed();
                     }
 
-                    float idx = enc_values[0][4] < .5f ? enc_values[0][4] * 2.f : (1.f - enc_values[0][4]) * 2.f; // 0 - 1 - 0
+                    float idx = speed < .5f ? speed * 2.f : (1.f - speed) * 2.f; // 0 - 1 - 0
                     r = color_quad_xfade(med_blue[0], green[0], yellow[0], red[0], idx);
                     g = color_quad_xfade(med_blue[1], green[1], yellow[1], red[1], idx);
                     b = color_quad_xfade(med_blue[2], green[2], yellow[2], red[2], idx);
