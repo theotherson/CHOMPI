@@ -48,16 +48,19 @@ as with TAPE's shift menu. White keys are keys 1–15.
 
 ### Loop page
 
+The black keys open **pickers** on the white keys that stay open (the menu latched) until something is
+picked, which goes straight back to the normal keyboard (chromatic notes across all keys). While a picker
+is open, the knobs, play and loop work as normal unless CHOMPI is held.
+
 | Key | Function |
 |---|---|
-| low C# | **Layer view** on/off (see below) |
-| low D# | Project slots 1–15 on the white keys |
-| low F# | Slice mode for the active layer(s). Hold: slice the loop across the white keys (see Slicing) |
-| low G# | Tap: sequencer on/off, sequencing the layer with the white keys. CHOMPI + hold: patterns. CHOMPI + tap: latch (see Arp gestures) |
-| low A# | **(open)** |
-| mid C# | FX pre/post toggle **(open: same on both pages?)** |
-| mid D# | Loop length, all layers or each one **(open: same on both pages?)** |
-| upper F# / G# / A# | Erase / copy / save, as in TAPE **(open: same on both pages?)** |
+| low C# / D# | **Sample picker:** chromatic / one-shot banks, again to scroll banks (as TAPE). Pick a sample on the white keys (one-shots: any key) to close it |
+| low F# | Slice machine (later) |
+| low G# | **Layer picker** (see Layer view) |
+| low A# | Nothing: no input select on the loop page |
+| mid C# | FX pre/post toggle |
+| mid D#, others | Later: pattern length, quantisation… so beats can be locked in |
+| upper F# / G# / A# | Erase / copy / save, as in TAPE |
 
 ### Sampler page
 
@@ -149,14 +152,14 @@ Get recording, layers and printing working first, then slicing.
 
 ### Layer view
 
-CHOMPI + C# on the loop page turns it on, and it **stays on** (the CHOMPI menu latched open):
-- black keys keep their menu functions; C# again turns the view off (so does leaving the loop page);
+CHOMPI + G# on the loop page opens it, and it **stays open** (the CHOMPI menu latched):
+- black keys keep their menu functions; G# again closes it (so does leaving the loop page);
 - white keys 1–4 are the layers, 5–15 do nothing;
 - knobs, their clicks, play and loop work as normal unless CHOMPI is held.
 
 | Gesture | Does |
 |---|---|
-| tap a layer key | record into that layer |
+| tap a layer key | record into that layer, and close the picker |
 | hold a layer key 2 s | solo it; hold the soloed layer 2 s to bring all back (as x0x) |
 | CHOMPI + tap a layer key | mute / unmute it (blinks slowly while muted) |
 | CHOMPI + hold a layer key 1 s | bounce into it |
