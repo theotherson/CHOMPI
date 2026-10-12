@@ -779,6 +779,8 @@ namespace chompi
             case static_cast<uint16_t>(Hardware::SwId::KEY_26): // chompi
             {
                 chompi_key_pressed = rising;
+                if(!rising && fx_)
+                    fx_->SetLooperAudition(-1); // a track's audition lasts while CHOMPI is held
 
                 if(rising && selected_slot != kSlotNone)
                 {
@@ -1070,8 +1072,9 @@ namespace chompi
                 {
                     // the layer picker. Tap a layer: on / off. Hold layers ~0.5 s: they blink orange as bounce
                     // sources, and stay so; tapping a source takes it back out, tapping another layer bounces
-                    // them into it, replacing what's there (with CHOMPI: merging). CHOMPI + tap a layer: select it, ending any audition; CHOMPI + hold it
-                    // 2 s: audition it (only it plays, until held again or the picker closes).
+                    // them into it, replacing what's there (with CHOMPI: merging). CHOMPI + tap a layer: select
+                    // it, ending any audition. CHOMPI + hold it 2 s: audition it (only it plays) until CHOMPI
+                    // comes up or, played from a stop, it reaches its end.
                     // Other white keys: nothing.
                     const size_t key = KeyToSlot(buttonID);
                     if(key >= 1 && key <= kNumLayers)
@@ -1287,7 +1290,7 @@ namespace chompi
                     source_mask_ |= 1 << l;
             if(held_layer_ >= 0 && !arm_fired_ && now - held_since_ >= kAuditionHoldMs)
             {
-                fx_->SetLooperAudition(fx_->GetLooperAudition() == held_layer_ ? -1 : held_layer_);
+                fx_->SetLooperAudition(held_layer_); // until CHOMPI comes up, or it ends
                 arm_fired_ = true;
             }
             DrawLayerKeys(fx_, now, source_mask_);

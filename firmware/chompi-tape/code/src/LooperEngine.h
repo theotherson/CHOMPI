@@ -111,6 +111,19 @@ namespace daisy
                     ToggleRecord(); // play mode
                 }
             }
+
+            // an audition that started the playback plays the track once, like auditioning a sample
+            if(audition_played_)
+            {
+                const uint32_t tell = Master().GetReadTell();
+                if(tell < audition_tell_)
+                {
+                    audition_ = -1;
+                    playing = false;
+                    audition_played_ = false;
+                }
+                audition_tell_ = tell;
+            }
         }
 
         /** SD timer: zero layers left over from the last loop, a chunk at a time. A dirty layer is silent
@@ -189,6 +202,7 @@ namespace daisy
                     layer.JumpToStart();
                 playing = true;
                 audition_played_ = true;
+                audition_tell_ = Master().GetReadTell();
             }
             else if(l < 0 && audition_played_)
             {
@@ -606,6 +620,7 @@ namespace daisy
         bool muted_[kNumLayers];
         volatile int audition_ = -1;
         bool audition_played_ = false; // the audition started the playback, ending it stops it
+        uint32_t audition_tell_ = 0;   // where that playback was, to see it wrap
         float layer_gain_[kNumLayers];
 
         volatile bool bouncing_ = false;
