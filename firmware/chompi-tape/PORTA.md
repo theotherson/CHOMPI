@@ -278,7 +278,7 @@ CHOMPI + G# opens the track view, and it **stays open** (G# again closes it):
 
 | Gesture | Does |
 |---|---|
-| hold a track ~0.5 s | **arm it, "listening":** it prints what plays (flashing red) until it's tapped again (which also stops the loop buffer; the tracks play on), or the loop buffer stops |
+| hold a track ~0.5 s | **arm it, "listening":** with the loop buffer playing it waits for the loop's start (blinking red slowly; tap to cancel), then prints what plays (flashing red), to the sample. A **first print stops by itself after one pass**, so the tracks' length is the loop's; the loop buffer stops and the tracks play on. Later prints listen until the track is tapped again (which also stops the loop buffer; the tracks play on) or the loop buffer stops. With the loop buffer stopped, a print starts at once |
 | tap a track | turn it on / off (mute); a printing track: stop printing |
 | CHOMPI + tap a track | **select it** (even if it already is), ending any audition |
 | CHOMPI + hold a track 2 s | audition it: only that track plays (it pulses) **until CHOMPI is released**. Stopped, it plays once from the top, then ends |
@@ -289,8 +289,8 @@ LEDs: tracks with content in their own colour (1 pink, 2 blue, 3 orange, 4 purpl
 empty = dim white, being cleared = dim red, muted = blinking dimly, printing = flashing red, bounce picks =
 blinking white, being bounced into = flashing white, picked for deleting = magenta. Mutes aren't saved.
 
-Open: a "print one pass of the loop buffer" gesture (the track's length = the loop's), suggested as an
-alternative to listening.
+A first print taken with the loop buffer playing is one pass of it (at the loop's speed then, so the
+tracks' length is that pass's real time).
 
 ### How the four tracks work (draft)
 

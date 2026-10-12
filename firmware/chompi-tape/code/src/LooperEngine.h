@@ -64,6 +64,7 @@ namespace daisy
         // records in, plays into out (which may be in: each sample is read before it's added to)
         void Process(const float* in_l, const float* in_r, float* out_l, float* out_r, size_t size)
         {
+            wrap_at_ = -1;
             if(IsFirstRecording() && !IsRecording() && !Master().IsResetting())
                 return;
 
@@ -102,6 +103,14 @@ namespace daisy
 
                     out_l[i] += sum_l * fx_env_;
                     out_r[i] += sum_r * fx_env_;
+
+                    // where the loop comes round (a jump of over half the window, either direction)
+                    const uint32_t tell = Master().GetReadTell();
+                    const uint32_t half = (Master().GetLoopEnd() - Master().GetLoopStart()) / 2;
+                    const uint32_t d = tell > prev_tell_ ? tell - prev_tell_ : prev_tell_ - tell;
+                    if(playing && half && d > half && wrap_at_ < 0)
+                        wrap_at_ = int(i);
+                    prev_tell_ = tell;
                 }
                 else if(!reset)
                 {
@@ -466,6 +475,9 @@ namespace daisy
             }
         }
 
+        /** the sample in the last Process where the loop came round to its start, -1 if it didn't */
+        inline int WrapAt() const { return wrap_at_; }
+
         inline bool GetRecordArm() { return record_arm; }
         inline bool GetIsEmpty() { return !record && first_record; }
 
@@ -683,5 +695,7 @@ namespace daisy
         bool reset, jump_to_start;
 
         float fx_env_, fx_env_target_;
+        int wrap_at_ = -1;
+        uint32_t prev_tell_ = 0;
     };
 }

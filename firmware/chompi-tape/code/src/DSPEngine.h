@@ -598,7 +598,7 @@ namespace daisy
                     ApplyFx(out[0], out[1], size);
 
                 // the tracks print what's heard so far and add themselves after it
-                tracks_.Process(out[0], out[1], size);
+                ProcessTracks(out, size);
             }
 
             if(fx_env_ < .01f)
@@ -1579,17 +1579,31 @@ namespace daisy
         inline void LooperOpenFile() { loop_.OpenFile(); }
 
         /** PORTA 4TRACK tracks (the looper's layers before the loop buffer came) */
-        /** hold a track in the picker: it prints what plays, from now (a first print sets the tracks' length,
-         *  another adds on top) until it's tapped again or the loop buffer stops */
+        /** hold a track in the picker: it prints what plays (a first print sets the tracks' length, another
+         *  adds on top). With the loop buffer playing it waits for the loop's start; a first print then stops
+         *  by itself after one pass, so the tracks' length is the loop's, and the loop buffer stops with it.
+         *  Otherwise it prints from now until it's tapped again or the loop buffer stops. */
         void PrintTrack(size_t track)
         {
-            if(tracks_.IsRecording() || tracks_.IsBouncing())
+            if(tracks_.IsRecording() || tracks_.IsBouncing() || track >= kNumLayers)
                 return;
-            tracks_.SetActiveLayer(track);
-            if(tracks_.ActiveLayer() == track)
-                tracks_.StartTake();
+            if(loop_.IsPlaying() && !loop_.GetIsEmpty())
+                print_wait_ = int(track); // ProcessTracks starts it on the loop's start
+            else
+            {
+                // now: the audio's CheckRecordReady starts it next block
+                tracks_.SetActiveLayer(track);
+                if(tracks_.ActiveLayer() == track)
+                    tracks_.StartTake();
+            }
         }
-        void StopPrint() { tracks_.StopTake(); }
+        void StopPrint()
+        {
+            print_pass_ = false;
+            tracks_.StopTake();
+        }
+        inline int PrintWaiting() const { return print_wait_; }
+        inline void CancelPrintWait() { print_wait_ = -1; }
         /** a printing track tapped: the print stops and the loop buffer with it; the tracks play on */
         void UnarmTrack() { unarm_req_ = true; }
 
@@ -1608,6 +1622,45 @@ namespace daisy
         inline bool TracksPlaying() { return tracks_.IsPlaying(); }
         inline float TracksPosition() { return tracks_.GetPosition(); } // 0-1 through the tracks' length
 
+        // in the audio, on the loop's start: a first print stops after one pass
+        void StartPrintNow(size_t track)
+        {
+            tracks_.SetActiveLayer(track);
+            if(tracks_.ActiveLayer() != track)
+                return; // still being cleared
+            print_pass_ = tracks_.IsFirstRecording();
+            tracks_.StartTake();
+            tracks_.CheckRecordReady();
+        }
+
+        /** the tracks' block, split where the loop buffer comes round when a print starts or ends there, so
+         *  it's to the sample */
+        void ProcessTracks(float** out, size_t size)
+        {
+            const int w = loop_.WrapAt();
+            if(w < 0 || (print_wait_ < 0 && !print_pass_))
+            {
+                tracks_.Process(out[0], out[1], size);
+                return;
+            }
+            tracks_.Process(out[0], out[1], w);
+            if(print_pass_ && tracks_.IsRecording()) // one pass done: the tracks play it, the loop stops
+            {
+                StopPrint();
+                tracks_.CheckRecordReady();
+                if(loop_.IsPlaying() && !loop_.IsRecording())
+                    loop_.TogglePlaying();
+                loop_was_playing_ = false;
+            }
+            else if(print_wait_ >= 0)
+            {
+                const int track = print_wait_;
+                print_wait_ = -1;
+                StartPrintNow(track);
+            }
+            tracks_.Process(out[0] + w, out[1] + w, size - w);
+        }
+
         /** the tracks have their own transport (CHOMPI + play); a print stops when the loop buffer stops */
         void TracksFollowLoop()
         {
@@ -1622,7 +1675,10 @@ namespace daisy
             }
             const bool playing = loop_.IsPlaying();
             if(!loop_.GetIsEmpty() && !playing && loop_was_playing_)
+            {
                 StopPrint();
+                print_wait_ = -1;
+            }
             loop_was_playing_ = playing;
         }
         inline size_t GetLooperLayer() { return tracks_.ActiveLayer(); }
@@ -2070,6 +2126,8 @@ namespace daisy
         LooperEngine tracks_;
         bool loop_was_playing_ = false;
         volatile bool unarm_req_ = false;
+        volatile int print_wait_ = -1; // a track armed, waiting for the loop's start
+        bool print_pass_ = false;      // a first print that stops after one pass of the loop
         float track_speed_ = .75f; // 1x
         LooperEngine sampler_; // PORTA: the sampler page's sample looper, one layer
         RamBufferMemory* sampler_buff_ = nullptr;

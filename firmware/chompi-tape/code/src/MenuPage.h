@@ -1323,6 +1323,8 @@ namespace chompi
                             {
                                 if(fx_->IsPrinting() && fx_->GetLooperLayer() == key - 1)
                                     fx_->UnarmTrack(); // the loop buffer stops, the tracks play on
+                                else if(fx_->PrintWaiting() == int(key - 1))
+                                    fx_->CancelPrintWait();
                                 else
                                     fx_->ToggleLooperMute(key - 1);
                             }

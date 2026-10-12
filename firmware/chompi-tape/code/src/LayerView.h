@@ -13,8 +13,9 @@ namespace chompi
     /** PORTA 4TRACK page, track picker: white keys 1-4 are the tracks, 5-15 the playhead.
      *  A track with content shows its colour (pink, blue, orange, purple); empty: dim white; being cleared:
      *  dim red; selected: green. Muted: blinks dimly in its colour. While one is auditioned it pulses and
-     *  the others are nearly dark. Printing ("listening"): flashing red. Bounce picks (copy held): blinking
-     *  white; the destination of a bounce under way flashes white. Picked for deleting: magenta.
+     *  the others are nearly dark. Armed, waiting for the loop's start: blinking red slowly. Printing
+     *  ("listening"): flashing red. Bounce picks (copy held): blinking white; the destination of a bounce
+     *  under way flashes white. Picked for deleting: magenta.
      *  Keys 5-15: the tracks' playhead, left to right through their length, in the selected track's colour. */
     inline void DrawLayerKeys(daisy::Engine* fx, uint32_t now, uint8_t sources = 0, uint8_t erase = 0)
     {
@@ -39,6 +40,8 @@ namespace chompi
                     if((now / 150) % 2)
                         r = 1.f;
                 }
+                else if(fx->PrintWaiting() == int(layer)) // armed, waiting for the loop's start: slow red
+                    r = (now / 400) % 2 ? .8f : .1f;
                 else if(!fx->IsLooperLayerReady(layer))
                     r = .3f;
                 else if(layer == selected)
