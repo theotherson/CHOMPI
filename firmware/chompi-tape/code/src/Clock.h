@@ -18,7 +18,7 @@ namespace chompi
         static constexpr int kMaxTempo = 240;
         static constexpr float kBeepLevel = .2f; // the beep's peak
         static constexpr uint8_t kSigs = 5;
-        static constexpr int kMaxBars = 14; // a white key each
+        static constexpr int kMaxBars = 16; // a white key each, the top one is 15 then 16
 
         void Init()
         {

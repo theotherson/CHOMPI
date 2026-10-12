@@ -696,10 +696,13 @@ namespace chompi
 
             bool rising = numberOfPresses == 1;
 
-            // the length view: the wheel's click taps the tempo (the beat lands on the tap)
-            if(latch_ == Latch::LENGTH && LatchedOnly() && buttonID == ENC_5_SW)
+            // the length view: the wheel's click taps the tempo (the beat lands on the tap); CHOMPI + click is
+            // the metronome
+            if(latch_ == Latch::LENGTH && buttonID == ENC_5_SW && preset_mode == PresetMode::NONE)
             {
-                if(rising)
+                if(rising && chompi_key_pressed)
+                    beat_clock.SetMetronome(!beat_clock.Metronome());
+                else if(rising)
                     beat_clock.Tap(System::GetNow());
                 return true;
             }
@@ -1118,13 +1121,13 @@ namespace chompi
 
             // white keys and play/pause
             default:
-                // the length view, CHOMPI up: key N sets N bars, the top one is the metronome. No notes.
+                // the length view, CHOMPI up: key N sets N bars; the top key 15, again 16. No notes.
                 if(latch_ == Latch::LENGTH && !chompi_key_pressed && preset_mode == PresetMode::NONE
                    && buttonID < 29)
                 {
                     const size_t slot = KeyToSlot(buttonID);
                     if(rising && slot == 15)
-                        beat_clock.SetMetronome(!beat_clock.Metronome());
+                        beat_clock.SetBars(beat_clock.Bars() == 15 ? 16 : 15);
                     else if(rising && slot != kSlotNone)
                         beat_clock.SetBars(int(slot));
                     break;
@@ -1535,40 +1538,44 @@ namespace chompi
         }
 
         // loop page: G# bright while the layer picker is open, and then keys 1-4 are the layers
-        /** the length view (low A#, 4TRACK page; A# purple while open, dim white closed). White keys: key N
-         *  is N bars, lit up to the bars set (CHOMPI held: keys 1-5 are 4/4, 3/4, 6/8, 5/4, 7/4, the one set
-         *  bright green). The wheel's LEDs pulse on the beat, brighter on the one, blue (slow) to red (fast)
-         *  by the tempo. Top key: the metronome, flashing on the beat while on. */
+        /** the length view (low A#, 4TRACK page; A# purple while open, flashing white on the beat while the
+         *  metronome is on, dim white closed). White keys: key N is N bars, lit up to the bars set; 16 bars
+         *  shows the top key pink (CHOMPI held: keys 1-5 are 4/4, 3/4, 6/8, 5/4, 7/4, the one set bright
+         *  green). The wheel's LEDs pulse on the beat, brighter on the one, blue (slow) to red (fast) by the
+         *  tempo. */
         void DrawLengthView(uint32_t now)
         {
             (void)now;
             const bool on = latch_ == Latch::LENGTH;
-            if(on)
-                SetSmtLedFloat(4, purple[0], purple[1], purple[2]);
-            else
-                SetSmtLedFloat(4, .15f, .15f, .15f);
-            if(!on || preset_mode != PresetMode::NONE)
-                return;
-
             uint32_t beat;
             float phase;
             beat_clock.Get(beat, phase);
             const int in_bar = beat % beat_clock.BeatsPerBar();
             const bool flash = phase < .25f;
 
-            for(uint8_t key = 1; key < 15; key++)
+            if(on && beat_clock.Metronome() && flash)
+                SetSmtLedFloat(4, 1.f, 1.f, 1.f);
+            else if(on)
+                SetSmtLedFloat(4, purple[0], purple[1], purple[2]);
+            else
+                SetSmtLedFloat(4, .15f, .15f, .15f);
+            if(!on || preset_mode != PresetMode::NONE)
+                return;
+
+            const int bars = beat_clock.Bars();
+            for(uint8_t key = 1; key < 16; key++)
             {
-                const float* col = chompi_key_pressed ? green : purple;
+                const float* col = chompi_key_pressed ? green : (key == 15 && bars == 16 ? pink : purple);
                 float lvl;
                 if(chompi_key_pressed)
                     lvl = key - 1 == beat_clock.SigIndex() ? 1.f : key <= Clock::kSigs ? .12f : 0.f;
                 else
-                    lvl = int(key) == beat_clock.Bars() ? 1.f : int(key) < beat_clock.Bars() ? .25f : 0.f;
+                {
+                    const int shown = bars > 15 ? 15 : bars; // the top key is 15 and 16
+                    lvl = int(key) == shown ? 1.f : int(key) < shown ? .25f : 0.f;
+                }
                 SetSmtLedFloat(25 - key, col[0] * lvl, col[1] * lvl, col[2] * lvl);
             }
-
-            const float m = beat_clock.Metronome() ? (flash ? (in_bar ? .5f : 1.f) : .15f) : .04f;
-            SetSmtLedFloat(25 - 15, m, m, m);
 
             // the tempo on the wheel
             const float t = float(beat_clock.Tempo() - Clock::kMinTempo) / (Clock::kMaxTempo - Clock::kMinTempo);
