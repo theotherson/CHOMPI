@@ -300,15 +300,17 @@ arrays would be safer.
 
 - A# on the 4TRACK page opens the slice machine: the loop-bank key (F#) flashes, and so does the record key if
   the sample buffer holds a recording. Pick one as the source.
-- The source is sliced into 15, one per white key, and played as a sequence or an arpeggio.
+- The source is sliced into 15, one per white key, and played as a sequence or an arpeggio, chosen on
+  **middle D#** (low D# stays kits).
 - The sequencer works as in the other firmwares: tap to turn on / off, hold for patterns, CHOMPI + tap to latch.
 - It's close to TEMPO's kit system, so it could be **a second way to make a kit**:
   1. threshold per step: each hit becomes the next slot (the kit capture above);
   2. record up to ~15 s, then slice it evenly onto the 15 white keys.
 
-**(open)** Key clashes to settle when this is built: D# was planned for kits and is now suggested for choosing
-sequence vs arp; G# is the track picker (tap) and project picker (hold), and was the arp/sequencer earlier.
-The sampler's 10 s cap would need ~15 s for this source (a kit buffer of its own is fine on memory).
+**(open)** Middle D# was pencilled in for loop length, which needs another home. G# is the track picker
+(tap) and project picker (hold), and was the arp/sequencer earlier, so where the sequencer's on/off lives is
+still to settle. The sampler's 10 s cap would need ~15 s for this source (a kit buffer of its own is fine
+on memory).
 
 ## Groundwork (done)
 
