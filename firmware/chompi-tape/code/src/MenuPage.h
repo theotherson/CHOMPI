@@ -88,6 +88,14 @@ namespace chompi
                 last_blink = now;
             }
 
+            // sampler page: a slot held 0.5 s in the picker loads into the buffer
+            if(pick_slot_ != kSlotNone && now - pick_since_ >= kLoadHoldMs && !copier_->IsCopying())
+            {
+                const size_t slot = pick_slot_;
+                pick_slot_ = kSlotNone;
+                LoadIntoSampler(slot);
+            }
+
             if(fx_->TakeBakeDone())
             {
                 fx_->SamplerAdoptBake();
@@ -1096,6 +1104,29 @@ namespace chompi
                     // the sample buffer (cut at 10 s) to edit, and goes back to the sampler.
                     const size_t slot = KeyToSlot(buttonID);
 
+                    // sampler page: tap a slot to audition it, hold it 0.5 s to load it into the buffer
+                    if(!OnLoopPage() && slot != kSlotNone && !no_sd_card_)
+                    {
+                        if(rising && fx_->GetFileExists(slot - 1))
+                        {
+                            pick_slot_ = slot;
+                            pick_since_ = System::GetNow();
+                        }
+                        else if(!rising && pick_slot_ == slot)
+                            pick_slot_ = kSlotNone;
+                        if(fx_->GetVoiceMode() == VoiceMode::CUBBI)
+                            return false; // one-shots play (and stop) through the normal page
+                        if(rising && fx_->GetFileExists(slot - 1))
+                        {
+                            SetVoiceSlot(slot);
+                            fx_->request_fifo.PushBack(KeyRequest(KeyRequest::Type::START, 0.f, buttonID, 127.f));
+                            break;
+                        }
+                        if(!rising)
+                            return false; // the normal page stops it
+                        break;
+                    }
+
                     // CHOMPI + a slot auditions it, the picker stays open. One-shots play through the normal
                     // page; a chromatic sample is selected and played at its own pitch.
                     if(chompi_key_pressed && slot != kSlotNone && !no_sd_card_)
@@ -1116,12 +1147,7 @@ namespace chompi
                         break;
                     }
 
-                    if(rising && slot != kSlotNone && !no_sd_card_ && !OnLoopPage())
-                    {
-                        if(fx_->GetFileExists(slot - 1) && !copier_->IsCopying())
-                            LoadIntoSampler(slot);
-                    }
-                    else if(rising && slot != kSlotNone && !no_sd_card_)
+                    if(rising && slot != kSlotNone && !no_sd_card_)
                     {
                         if(fx_->GetVoiceMode() == VoiceMode::CUBBI)
                             SetLatch(Latch::NONE);
@@ -1370,6 +1396,11 @@ namespace chompi
         // open or close a picker; closing the layer picker ends an audition and drops bounce sources
         void SetLatch(Latch latch)
         {
+            if(latch_ == Latch::SAMPLES && latch != Latch::SAMPLES && !OnLoopPage() && fx_)
+            {
+                fx_->UseSamplerSample(); // auditions picked bank samples; the keys go back to the buffer
+                pick_slot_ = kSlotNone;
+            }
             if(latch != Latch::LAYERS && fx_)
             {
                 fx_->SetLooperAudition(-1);
@@ -1497,7 +1528,10 @@ namespace chompi
         bool opened_on_loop_page_ = false; // the toggle when the menu opened, the menu closes if it moves
         Latch latch_ = Latch::NONE;
         bool open_unshifted_ = false; // opened for the sampler page, not by CHOMPI
-        bool loading_ = false;        // a sample is being loaded into the sample buffer        // loop page: a picker latched open by C#/D# or G#
+        bool loading_ = false;        // a sample is being loaded into the sample buffer
+        size_t pick_slot_ = kSlotNone; // sampler page picker: the slot held down, loading at kLoadHoldMs
+        uint32_t pick_since_ = 0;
+        static constexpr uint32_t kLoadHoldMs = 500;        // loop page: a picker latched open by C#/D# or G#
         // layer picker: the layer pressed with CHOMPI (select / audition)
         int held_layer_ = -1;
         uint32_t held_since_ = 0;

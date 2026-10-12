@@ -11,6 +11,8 @@ namespace daisy
 
     static const uint16_t kMaxClickSamps = 300; // 6ish ms
     static const uint16_t kMinLoopLen = kMaxFileStreamingSamps / 2;
+    // PORTA: from RAM there's no read-ahead to protect, so a loop can be granular: 10 ms, above a single cycle
+    static const uint16_t kMinRamLoopLen = 480;
 
     /** @brief Sampler that uses a file on external media to store the data
      *  This uses a .wav file as the source to be able to be saved/edited
@@ -122,7 +124,8 @@ namespace daisy
             {
                 // do nothing
             }
-            else if(end_point - new_start_point < kMinLoopLen || new_start_point >= end_point) // loop would be too short
+            else if(end_point - new_start_point < (using_ram ? kMinRamLoopLen : kMinLoopLen)
+                    || new_start_point >= end_point) // loop would be too short
             {
                 // do nothing
             }
@@ -189,7 +192,8 @@ namespace daisy
             {
                 // do nothing
             }
-            else if(new_end_point - start_point < kMinLoopLen || start_point >= new_end_point) // loop would be too short
+            else if(new_end_point - start_point < (using_ram ? kMinRamLoopLen : kMinLoopLen)
+                    || start_point >= new_end_point) // loop would be too short
             {
                 // do nothing
             }

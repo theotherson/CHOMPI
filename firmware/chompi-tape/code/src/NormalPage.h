@@ -940,6 +940,12 @@ namespace chompi
                 {
                     inc = 0.f;
                 }
+                else if((encoderID == 1 || encoderID == 2) && page == 0 && OnSamplerPage())
+                {
+                    // PORTA: start / end step finer as they close in, down to granular windows
+                    const float window = enc_values[0][2] - enc_values[0][1];
+                    inc = turns * fclamp(.03f * window, .0001f, kEncoderFineStep);
+                }
                 else if ((encoderID == 0 && page == 0 && !quantized_pitch_)
                     || (encoderID == 1 && page == 0)
                     || (encoderID == 2 && page == 0)
@@ -981,7 +987,8 @@ namespace chompi
             // TODO: set here, if they don't update, don't update
             if(page == 0 && (encoderID == 1 || encoderID == 2))
             {
-                if ((enc_values[0][1] + .01f) >= enc_values[0][2])
+                // the voice refuses too short a loop itself; this only keeps start before end
+                if ((enc_values[0][1] + (OnSamplerPage() ? .0001f : .01f)) >= enc_values[0][2])
                 {
                     enc_values[page][encoderID] = old_val;
                     // enc_values[0][2] = enc_values[0][1] + .01f;
