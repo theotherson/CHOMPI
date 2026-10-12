@@ -175,11 +175,17 @@ namespace daisy
         inline void SetAudition(int l) { audition_ = l < int(kNumLayers) ? l : -1; }
         inline int Audition() const { return audition_; }
 
-        // arm the active layer: recording into it starts with the next note played, as TAPE's record arm
-        void ArmOnNote()
+        /** Pick layer l and arm it: recording into it starts with the next note played, as TAPE's record
+         *  arm. An overdub under way (TAPE goes straight into one after the first take) stops first, so
+         *  it doesn't follow the pick into the new layer. Not during the first take, which sets the length. */
+        void ArmLayer(size_t l)
         {
-            if(!record && !bouncing_)
-                record_arm = true;
+            if(l >= kNumLayers || bouncing_ || (first_record && record))
+                return;
+            if(record)
+                ToggleRecord(true); // stop the overdub, keep playing
+            SetActiveLayer(l);
+            record_arm = true;
         }
         inline size_t BounceDest() const { return bounce_dest_; }
 

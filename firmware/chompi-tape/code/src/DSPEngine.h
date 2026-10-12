@@ -1342,7 +1342,7 @@ namespace daisy
         inline bool IsLooperLayerMuted(size_t layer) const { return looper.Muted(layer); }
         inline void SetLooperAudition(int layer) { looper.SetAudition(layer); } // -1: none
         inline int GetLooperAudition() const { return looper.Audition(); }
-        inline void ArmLooperOnNote() { looper.ArmOnNote(); }
+        inline void ArmLooperLayer(size_t layer) { looper.ArmLayer(layer); }
 
         /** arm the looper: it starts recording (first take or overdub) when the input crosses threshold */
         void ArmLooper(float threshold)

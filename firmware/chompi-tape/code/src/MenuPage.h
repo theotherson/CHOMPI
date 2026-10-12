@@ -1258,8 +1258,7 @@ namespace chompi
             const uint32_t now = System::GetNow();
             if(held_layer_ >= 0 && !held_shift_ && !arm_fired_ && now - held_since_ >= kArmHoldMs)
             {
-                fx_->SetLooperLayer(size_t(held_layer_));
-                fx_->ArmLooperOnNote();
+                fx_->ArmLooperLayer(size_t(held_layer_));
                 arm_fired_ = true;
             }
             else if(held_layer_ >= 0 && held_shift_ && !arm_fired_ && now - held_since_ >= kBounceHoldMs)
