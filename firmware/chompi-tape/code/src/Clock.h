@@ -18,14 +18,14 @@ namespace chompi
         static constexpr int kMaxTempo = 240;
         static constexpr float kBeepLevel = .2f; // the beep's peak
         static constexpr uint8_t kSigs = 5;
-        static constexpr uint8_t kBarChoices = 8;
+        static constexpr int kMaxBars = 14; // a white key each
 
         void Init()
         {
             beep_on_ = had_grid_ = false;
             tempo_ = 120;
             sig_ = 0;
-            bars_ = 3; // 4 bars, see Bars()
+            bars_ = 4;
             metro_beat_ = last_pulse_ = 0;
             metro_phase_ = beep_env_ = beep_ph_ = beep_inc_ = 0.f;
             SetSampleRate(48000.f);
@@ -116,18 +116,9 @@ namespace chompi
             sig_ = s < 0 ? 0 : s >= kSigs ? kSigs - 1 : s;
         }
 
-        // the length view's bar count (not used by recording yet)
-        uint8_t BarsIndex() const { return bars_; }
-        int Bars() const
-        {
-            static const uint8_t choices[kBarChoices] = {1, 2, 3, 4, 6, 8, 12, 16};
-            return choices[bars_];
-        }
-        void StepBars(int steps)
-        {
-            int b = bars_ + steps;
-            bars_ = b < 0 ? 0 : b >= kBarChoices ? kBarChoices - 1 : b;
-        }
+        // the length view's bar count, 1 - kMaxBars (not used by recording yet)
+        int Bars() const { return bars_; }
+        void SetBars(int bars) { bars_ = bars < 1 ? 1 : bars > kMaxBars ? kMaxBars : bars; }
 
         int Tempo() const { return tempo_; }
         void ChangeTempo(int bpm)
@@ -366,7 +357,7 @@ namespace chompi
         bool had_grid_;      // a grid that just appeared beeps at once
         int tempo_;          // BPM in quarters
         uint8_t sig_;        // time signature, see Sig()
-        uint8_t bars_;       // the length view's bar count, see Bars()
+        uint8_t bars_;       // the length view's bar count
         uint32_t metro_beat_;
         uint32_t last_pulse_;
         float metro_phase_;
