@@ -142,13 +142,16 @@ The **sample buffer** is one memory: the sampler page's loop path (play / loop k
 held to load it or the input is recorded; a loaded or baked sample starts looping at once, as a recording does.
 
 The menu is **always shown** on the sampler page, no CHOMPI needed: black keys are always their functions,
-white keys show the slots but play the sample (save / copy / erase still pick slots with them). CHOMPI held
+white keys are the bank's slots and the top one the buffer (see the table); save / copy / erase pick slots
+with them as in TAPE. CHOMPI held
 still shows the full menu. The loop key's LED: off while the buffer's empty; blinking red armed, red first take,
 yellow overdub, dim white holding a sample.
 
 | Key | Function |
 |---|---|
-| low C# / D# | **Load a sample to edit:** the bank on the white keys (again to scroll banks); **tap a slot to audition it, hold it 0.5 s to load it** into the sample buffer (cut at 10 s). Kit capture comes here later |
+| white keys 1–14 | **the current bank's slots:** tap to audition, **hold 0.5 s to load** into the sample buffer (cut at 10 s; it starts looping) |
+| top white key | **the buffer:** plays from its top while held; pink when it holds something |
+| low C# / D# | chromatic / loop banks: the other key switches mode, the same key steps banks (TAPE's way). Kit capture comes here later |
 | low F# | **Bake (built):** plays the sample once from start to end (knobs 2/3), at the wheel's speed, alone through the FX, and replaces it with the result; then the FX knobs (and CHOMPI's resonance, warble, delay time) go neutral and the trim to the whole sample. Magenta with a sample, flashing while baking. Save stays separate: bake, listen, save |
 | low G# | Free |
 | low A# | Input type: cycles mic → aux → resample. Key LED colour shows which |
