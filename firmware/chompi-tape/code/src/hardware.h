@@ -499,6 +499,14 @@ namespace chompi
             }
         }
 
+        /** a one-byte real-time message (MIDI clock) */
+        void SendRealtime(uint8_t byte)
+        {
+            uart_midi.SendMessage(&byte, 1);
+            if(usb_midi_active)
+                usb_midi.SendMessage(&byte, 1);
+        }
+
         void SendNoteOff(uint8_t channel, uint8_t note, uint8_t velocity)
         {
             uart_midi.SendNoteOff(channel, note, velocity);

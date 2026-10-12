@@ -61,7 +61,7 @@ namespace chompi
         }
 
         // PORTA: what holds the menu open without CHOMPI: a loop-page picker, or the sampler page itself
-        enum class Latch { NONE, SAMPLES, LAYERS, SAMPLER };
+        enum class Latch { NONE, SAMPLES, LAYERS, SAMPLER, LENGTH };
 
         // PORTA: a picker latched open with CHOMPI up: only the keys are the menu's
         inline bool LatchedOnly() const
@@ -477,7 +477,10 @@ namespace chompi
                 SetSmtLedFloat(mode, 0.f, 0.f, 0.f);
 
             if(OnLoopPage())
+            {
                 DrawLayerView();
+                DrawLengthView(now);
+            }
             else if(latch_ == Latch::SAMPLER && preset_mode == PresetMode::NONE) // the top key: the buffer
                 SetSmtLedFloat(25 - 15, fx_->SamplerEmpty() ? 0.f : pink[0], fx_->SamplerEmpty() ? 0.f : pink[1],
                                fx_->SamplerEmpty() ? 0.f : pink[2]);
@@ -490,6 +493,18 @@ namespace chompi
         {
             uint8_t page = knob_page[encoderID];
             float inc = turns * kEncoderCoarseStep;
+
+            // the length view: the wheel sets the page's value
+            if(latch_ == Latch::LENGTH && LatchedOnly() && encoderID == 4 && stepsPerRevolution == 0)
+            {
+                if(length_page_ == kLengthBars)
+                    beat_clock.StepBars(turns);
+                else if(length_page_ == kLengthTempo)
+                    beat_clock.ChangeTempo(turns);
+                else
+                    beat_clock.StepSig(turns);
+                return true;
+            }
 
             // we're receiving a knob position via CC, or the layer view is latched with CHOMPI up
             if(stepsPerRevolution > 0 || LatchedOnly())
@@ -945,7 +960,21 @@ namespace chompi
 
             case static_cast<uint16_t>(Hardware::SwId::KEY_20): // input: mic -> aux -> resample, sampler page only
             {
-                if(rising && !OnLoopPage())
+                // PORTA 4TRACK page: the length view. Each press steps its pages, bars -> tempo -> time
+                // signature, then closes it.
+                if(rising && OnLoopPage())
+                {
+                    if(latch_ != Latch::LENGTH)
+                    {
+                        SetLatch(Latch::LENGTH);
+                        length_page_ = kLengthBars;
+                    }
+                    else if(length_page_ < kLengthSig)
+                        length_page_++;
+                    else
+                        SetLatch(Latch::NONE);
+                }
+                else if(rising && !OnLoopPage())
                 {
                     const int next = (static_cast<int>(fx_->GetInputSource()) + 1) % static_cast<int>(InputSource::LAST);
                     fx_->SetInputSource(static_cast<InputSource>(next));
@@ -1071,6 +1100,18 @@ namespace chompi
 
             // white keys and play/pause
             default:
+                // the length view, CHOMPI up: white keys tap the tempo, the top one is the metronome. No notes.
+                if(latch_ == Latch::LENGTH && !chompi_key_pressed && preset_mode == PresetMode::NONE
+                   && buttonID < 29)
+                {
+                    const size_t slot = KeyToSlot(buttonID);
+                    if(rising && slot == 15)
+                        beat_clock.SetMetronome(!beat_clock.Metronome());
+                    else if(rising && slot != kSlotNone)
+                        beat_clock.Tap(System::GetNow());
+                    break;
+                }
+
                 // sampler page, CHOMPI held, not picking a slot to save to: a slot loads into the buffer
                 if(latch_ == Latch::SAMPLER && chompi_key_pressed && preset_mode == PresetMode::NONE
                    && buttonID < 29)
@@ -1473,6 +1514,45 @@ namespace chompi
         }
 
         // loop page: G# bright while the layer picker is open, and then keys 1-4 are the layers
+        /** the length view (low A#, 4TRACK page). A# shows the page: purple bars, blue tempo, green time
+         *  signature (dim white while closed). Bars: keys 1-8 are 1, 2, 3, 4, 6, 8, 12, 16 bars, lit up to
+         *  the one set. Tempo: the beat runs across the keys, a key per beat of the bar, the one brighter.
+         *  Time signature: keys 1-5 are 4/4, 3/4, 6/8, 5/4, 7/4. Top key: the metronome, flashing on the
+         *  beat while on. */
+        void DrawLengthView(uint32_t now)
+        {
+            (void)now;
+            const bool on = latch_ == Latch::LENGTH;
+            const float* page_col = length_page_ == kLengthBars ? purple : length_page_ == kLengthTempo ? med_blue : green;
+            if(on)
+                SetSmtLedFloat(4, page_col[0], page_col[1], page_col[2]);
+            else
+                SetSmtLedFloat(4, .15f, .15f, .15f);
+            if(!on || preset_mode != PresetMode::NONE)
+                return;
+
+            uint32_t beat;
+            float phase;
+            beat_clock.Get(beat, phase);
+            const int in_bar = beat % beat_clock.BeatsPerBar();
+            const bool flash = phase < .25f;
+
+            for(uint8_t key = 1; key < 15; key++)
+            {
+                float lvl = 0.f;
+                if(length_page_ == kLengthBars)
+                    lvl = key - 1 == beat_clock.BarsIndex() ? 1.f : key - 1 < beat_clock.BarsIndex() ? .25f : 0.f;
+                else if(length_page_ == kLengthTempo)
+                    lvl = key - 1 == in_bar ? (flash ? 1.f : .4f) : int(key) <= beat_clock.BeatsPerBar() ? .08f : 0.f;
+                else
+                    lvl = key - 1 == beat_clock.SigIndex() ? 1.f : key <= Clock::kSigs ? .12f : 0.f;
+                SetSmtLedFloat(25 - key, page_col[0] * lvl, page_col[1] * lvl, page_col[2] * lvl);
+            }
+
+            const float m = beat_clock.Metronome() ? (flash ? (in_bar ? .5f : 1.f) : .15f) : .04f;
+            SetSmtLedFloat(25 - 15, m, m, m);
+        }
+
         void DrawLayerView()
         {
             if(latch_ == Latch::LAYERS && fx_->IsLooperRecordArmed())
@@ -1559,6 +1639,8 @@ namespace chompi
         bool chompi_key_pressed = false;
         bool opened_on_loop_page_ = false; // the toggle when the menu opened, the menu closes if it moves
         Latch latch_ = Latch::NONE;
+        static constexpr uint8_t kLengthBars = 0, kLengthTempo = 1, kLengthSig = 2;
+        uint8_t length_page_ = kLengthBars; // the length view's page
         bool open_unshifted_ = false; // opened for the sampler page, not by CHOMPI
         bool loading_ = false;        // a sample is being loaded into the sample buffer
         bool hold_ = false;         // sampler page latch (mid D#)

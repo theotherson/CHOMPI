@@ -135,7 +135,7 @@ is open, the knobs, play and loop work as normal unless CHOMPI is held.
 | low D# | **15-voice kits** (like TEMPO's second bank) **(planned; open: where the kit sounds come from)**. Today it's still TAPE's CUBBI banks, which move to F# |
 | low F# | **Loop picker (planned):** TAPE's D# (CUBBI) banks, which are loops, move here. Tap F# to scroll banks: two for now, one full (the existing loops), one empty for new ones. Hold a loop, the layer picker appears, tap a layer to load it there **(open: where new loops come from: sampler recordings, tracks, or both)** |
 | low G# | Tap: **layer picker** (see Layer view). Hold: **project picker (planned)** |
-| low A# | **Length view (planned):** bars / tempo / time signature pages; hold + hold tracks to bake (see 4TRACK v2) |
+| low A# | **Length view (clock built, baking planned):** CHOMPI + A# opens it and it stays open; each A# press steps bars (purple) → tempo (blue) → time signature (green) → closed. The wheel sets the page's value; white keys 1–14 tap the tempo; the top key turns the metronome on/off (flashes on the beat). Bars: keys 1–8 = 1, 2, 3, 4, 6, 8, 12, 16 (not used by recording yet). Tempo: the beat runs across the keys. Signature: keys 1–5 = 4/4, 3/4, 6/8, 5/4, 7/4. Later: hold + hold tracks to bake (see 4TRACK v2) |
 | mid C# | FX pre/post toggle |
 | mid D# | **Sequencer / arpeggiator (planned)** |
 | upper F# / G# / A# | Erase / copy / save, as in TAPE |
@@ -318,6 +318,13 @@ PORTA uses a **single clock** that the loops, sequencer and slices all follow:
   (including 6/8), MIDI clock in with Start and Song Position.
 - **Ported from TEMPO's `clockManager.h`:** tap tempo, MIDI clock out, and per-bank clock divisions.
 - The sequencer takes its steps from this clock, not from TEMPO's separate timer.
+
+**Built (first clock build):** MIXTAPE's clock, with its internal clock always running (40–240 BPM) unless
+MIDI clock comes in (USB or TRS; Start or Song Position starts its grid). Tap tempo averages the last three
+taps and puts the beat on the tap. MIDI clock out (24 ppq, USB and TRS) sends the internal clock only, not
+one it follows; no Start/Stop out yet (they'll follow the 4TRACK transport). The metronome beeps on every
+beat (higher on the one; 6/8 clicks its eighths), after the looper so it's never recorded. Recording doesn't
+use the clock yet. Clock out is sent from the main loop, so SD copying can delay ticks.
 
 ---
 

@@ -14,6 +14,7 @@
 #include "MicFilter.h"
 #include "reverb.h"
 #include "RamBuffer.h"
+#include "Clock.h"
 #include "Limiter.h"
 #include "InterpolatedDelayLine.h"
 #include <algorithm>
@@ -180,6 +181,7 @@ namespace daisy
             mic_filter_.Init(samplerate);
 
             filter_.Init(samplerate);
+            chompi::beat_clock.SetSampleRate(samplerate);
             sr_ = samplerate;
             SetFilterEnvAttack(0.f);
             SetFilterEnvRelease(0.f);
@@ -707,6 +709,9 @@ namespace daisy
 
                 output_env_follower.Process((out[0][i] + out[1][i]));
             }
+
+            // PORTA's clock, after everything that records, so the metronome's beep isn't recorded
+            chompi::beat_clock.Process(out, size, .5f * kHpGain * mgain_, .5f * kLineOutGain * mgain_);
         }
 
         inline void SetInputMonitor(bool monitor) 

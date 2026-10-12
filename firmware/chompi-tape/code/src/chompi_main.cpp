@@ -26,6 +26,7 @@ PresetManager presets;
 OptionsManager options;
 
 daisysp::Reverb DSY_DTCMRAM_BSS reverb;
+Clock DSY_DTCMRAM_BSS chompi::beat_clock; // PORTA's one clock (from MIXTAPE)
 chompi::InterpolatedDelayLine::AudioSample DSY_SDRAM_BSS del_mem[kMaxDelayTime];
 
 // PORTA: the looper's layers, 55 s each
@@ -330,11 +331,19 @@ void MainLoop(void* data)
     }
     #endif
 
+    // MIDI clock out: the audio callback counts the ticks, they're sent here as a UART send blocks
+    while(beat_clock.TakeOutTick())
+        hw.SendRealtime(0xF8);
+
     System::DelayUs(10);
 }
 
+// every received MIDI byte, from the receive interrupts (the libDaisy hook from MIXTAPE)
+void daisy::MidiRxByte(uint8_t byte, const void* source) { beat_clock.Byte(byte, source); }
+
 int main(void)
 {
+    beat_clock.Init(); // DTCM isn't zeroed, and hw.Init starts MIDI
     hw.Init();
     // System::Delay(100);
 
