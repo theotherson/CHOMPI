@@ -54,9 +54,10 @@ is open, the knobs, play and loop work as normal unless CHOMPI is held.
 
 | Key | Function |
 |---|---|
-| low C# / D# | **Sample picker:** chromatic / one-shot banks, again to scroll banks (as TAPE). Tap a slot to pick it and close (one-shots: any key); **CHOMPI + a slot auditions it** and keeps the picker open |
-| low F# | Slice machine (later) |
-| low G# | **Layer picker** (see Layer view) |
+| low C# | **Sample picker:** chromatic banks, again to scroll banks (as TAPE). Tap a slot to pick it and close; **CHOMPI + a slot auditions it** and keeps the picker open |
+| low D# | **15-voice kits** (like TEMPO's second bank) **(planned; open: where the kit sounds come from)**. Today it's still TAPE's CUBBI banks, which move to F# |
+| low F# | **Loop picker (planned):** TAPE's D# (CUBBI) banks, which are loops, move here. Tap F# to scroll banks: two for now, one full (the existing loops), one empty for new ones. Hold a loop, the layer picker appears, tap a layer to load it there **(open: where new loops come from: sampler recordings, tracks, or both)** |
+| low G# | Tap: **layer picker** (see Layer view). Hold: **project picker (planned)** |
 | low A# | Nothing: no input select on the loop page |
 | mid C# | FX pre/post toggle |
 | mid D#, others | Later: pattern length, quantisation… so beats can be locked in |
@@ -122,6 +123,15 @@ While armed the loop key blinks red. A sample recording keeps a ~6 ms pre-roll s
 ---
 
 ## Projects and layers
+
+**Planned (2026-10-12):**
+- Hold G# on the loop page: up to 15 projects on the white keys; projects with content glow dim pink. Loading
+  one shows a loading animation (only the current project is in RAM).
+- Switching away from a project with unsaved changes: the white keys flash showing full and empty project
+  slots; tap one to save into, or the flashing erase key to discard.
+- On the card: `/PORTA/PROJECTS/P01…P15/` (track1–4.wav + settings), `/PORTA/LOOPS/B1, B2/`.
+- Loading a loop onto a track: into an empty project the loop sets the length; otherwise it's fitted (a
+  shorter loop repeats to fill, a longer one is cut at the end). Knobs 2/3 trim the result.
 
 - A **project** is a loop of up to **4 layers**. There are 15 project slots, one per white key.
 - Each layer is up to **55 seconds**.
