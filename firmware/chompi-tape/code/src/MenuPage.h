@@ -905,7 +905,9 @@ namespace chompi
             case static_cast<uint16_t>(Hardware::SwId::KEY_17): // Cubbi mode bank
             {                
                 // PORTA: the sample picker latches open; pick a sample on the white keys to close it (on the
-                // sampler page, picking loads it into the sample buffer to edit)
+                // sampler page, picking loads it into the sample buffer to edit). The first press shows the
+                // current bank; only presses while it's open step to the next (TAPE stepped on every press).
+                const bool picker_was_open = latch_ == Latch::SAMPLES;
                 if(rising)
                     SetLatch(Latch::SAMPLES);
 
@@ -917,7 +919,11 @@ namespace chompi
                     else
                         mode = VoiceMode::CUBBI;
 
-                    if(fx_->GetVoiceMode() == mode)
+                    if(fx_->GetVoiceMode() == mode && !picker_was_open)
+                    {
+                        // the picker opens on the bank already in use
+                    }
+                    else if(fx_->GetVoiceMode() == mode)
                     {
                         fx_->IncrementBank();
                         if(mode == VoiceMode::CUBBI)
