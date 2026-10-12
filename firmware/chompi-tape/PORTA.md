@@ -73,7 +73,8 @@ four-layer looper.
   while a track prints its FX, the other tracks' sends mute.
 - **Track picker, CHOMPI + tap:** the current track: print while CHOMPI is held; another track: select it.
   Auditioning is CHOMPI + hold (until CHOMPI is released), so the two don't clash.
-- **Track LEDs (built):** empty dim white, with content pink, selected green, muted blinks dimly.
+- **Track LEDs (built):** empty dim white, with content pink, selected green, muted blinks dimly; being recorded
+  into: red for the first take, flashing yellow for an overdub (as the loop key).
 - **Arming a track with content** records another overdub on it (as now).
 - **Deleting tracks (built):** in the track picker press erase, tap the tracks (they turn magenta, CHOMPI
   flashes magenta), then CHOMPI deletes them (CHOMPI flashes red). Deleting the last one empties the looper.
