@@ -90,7 +90,7 @@ is open, the knobs, play and loop work as normal unless CHOMPI is held.
 | low D# | **15-voice kits** (like TEMPO's second bank) **(planned; open: where the kit sounds come from)**. Today it's still TAPE's CUBBI banks, which move to F# |
 | low F# | **Loop picker (planned):** TAPE's D# (CUBBI) banks, which are loops, move here. Tap F# to scroll banks: two for now, one full (the existing loops), one empty for new ones. Hold a loop, the layer picker appears, tap a layer to load it there **(open: where new loops come from: sampler recordings, tracks, or both)** |
 | low G# | Tap: **layer picker** (see Layer view). Hold: **project picker (planned)** |
-| low A# | Nothing: no input select on the loop page |
+| low A# | **Sequencer / arpeggiator (planned):** tap on / off, hold for patterns, CHOMPI + tap to latch (no input select on this page) |
 | mid C# | FX pre/post toggle |
 | mid D#, others | Later: pattern length, quantisation… so beats can be locked in |
 | upper F# / G# / A# | Erase / copy / save, as in TAPE |
@@ -296,21 +296,17 @@ arrays would be safer.
 
 ## Later ideas
 
-### Slice machine on A# (4TRACK page), 2026-10-12
+### Kits as the slice machine; sequencer on A# (2026-10-12)
 
-- A# on the 4TRACK page opens the slice machine: the loop-bank key (F#) flashes, and so does the record key if
-  the sample buffer holds a recording. Pick one as the source.
-- The source is sliced into 15, one per white key, and played as a sequence or an arpeggio, chosen on
-  **middle D#** (low D# stays kits).
-- The sequencer works as in the other firmwares: tap to turn on / off, hold for patterns, CHOMPI + tap to latch.
-- It's close to TEMPO's kit system, so it could be **a second way to make a kit**:
-  1. threshold per step: each hit becomes the next slot (the kit capture above);
+- **Low D# (kits)** is also the slice machine. Two ways to make a kit, as separate functions on the same
+  button **(open: which gesture is which)**:
+  1. threshold capture: each hit becomes the next slot (as above);
   2. record up to ~15 s, then slice it evenly onto the 15 white keys.
-
-**(open)** Middle D# was pencilled in for loop length, which needs another home. G# is the track picker
-(tap) and project picker (hold), and was the arp/sequencer earlier, so where the sequencer's on/off lives is
-still to settle. The sampler's 10 s cap would need ~15 s for this source (a kit buffer of its own is fine
-on memory).
+- **Low A# (4TRACK page): the sequencer / arpeggiator.** Tap: on / off; hold: pattern options on the white
+  keys; CHOMPI + tap: latch. It plays the kit (or the chromatic sample) as a sequence or an arpeggio.
+- **Middle D#:** sequence or arpeggio.
+- **(open)** Loop length, pencilled in for middle D#, needs another home. Slicing wants up to ~15 s of
+  source, more than the sampler's 10 s; a kit buffer of its own is fine on memory (~2.9 MB).
 
 ## Groundwork (done)
 
