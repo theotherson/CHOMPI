@@ -7,10 +7,10 @@
 namespace chompi
 {
     /** PORTA loop page, layer picker: white keys 1-4 are the layers, the rest are dark.
-     *  Flashing white: being bounced into. Blinking red: armed (held 2 s). Green: the one recorded into.
+     *  Flashing white: being bounced into. Blinking orange: held as a bounce source. Green: the one recorded into.
      *  White: recorded. Dim: empty. Dim red: being cleared. An off (muted) layer is nearly dark; while one is
      *  auditioned it pulses and the others are nearly dark. */
-    inline void DrawLayerKeys(daisy::Engine* fx, uint32_t now, int armed = -1)
+    inline void DrawLayerKeys(daisy::Engine* fx, uint32_t now, uint8_t sources = 0)
     {
         for(uint8_t key = 1; key < 16; key++)
         {
@@ -20,8 +20,13 @@ namespace chompi
             {
                 if(fx->IsLooperBouncing() && layer == fx->LooperBounceDest())
                     r = g = b = (now / 100) % 2 ? 1.f : 0.f;
-                else if(int(layer) == armed)
-                    r = (now / 150) % 2 ? 1.f : 0.f;
+                else if(sources & (1 << layer))
+                {
+                    const float on = (now / 150) % 2 ? 1.f : 0.f;
+                    r = on;
+                    g = .6f * on;
+                    b = .24f * on;
+                }
                 else if(!fx->IsLooperLayerReady(layer))
                     r = .3f;
                 else if(layer == fx->GetLooperLayer())
@@ -39,7 +44,7 @@ namespace chompi
                     g *= pulse;
                     b *= pulse;
                 }
-                else if((heard >= 0 || fx->IsLooperLayerMuted(layer)) && int(layer) != armed) // not heard
+                else if((heard >= 0 || fx->IsLooperLayerMuted(layer)) && !(sources & (1 << layer))) // not heard
                 {
                     r *= .08f;
                     g *= .08f;

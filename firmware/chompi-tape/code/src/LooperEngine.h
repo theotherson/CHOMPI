@@ -138,22 +138,23 @@ namespace daisy
             }
         }
 
-        /** Portastudio-style bounce: every other recorded, unmuted layer is mixed into dest and left empty,
-         *  freeing it to record into; muted layers stay as they are, so muting picks what's bounced. Done on
-         *  the SD timer a chunk at a time, moving each sample (added into dest, zeroed in its source) so what
-         *  plays never changes. Not while recording, nor into a muted layer. */
-        bool BounceInto(size_t dest)
+        /** Portastudio-style bounce: the source layers (a bit each) are mixed into dest and left empty,
+         *  free to record into. Replace (Portastudio's way) clears dest first; merge keeps what's on it.
+         *  Done on the SD timer a chunk at a time, moving each sample (into dest, zeroed in its source).
+         *  dest comes out unmuted, so the print is heard. Not while recording. */
+        bool BounceInto(size_t dest, uint8_t sources, bool merge)
         {
-            if(dest >= kNumLayers || first_record || record || record_target || bouncing_ || dirty_len_[dest]
-               || muted_[dest])
+            if(dest >= kNumLayers || first_record || record || record_target || bouncing_ || dirty_len_[dest])
                 return false;
-            uint8_t sources = 0;
+            sources &= ~(1 << dest);
             for(size_t l = 0; l < kNumLayers; l++)
-                if(l != dest && filled_[l] && !dirty_len_[l] && !muted_[l])
-                    sources |= 1 << l;
+                if(!filled_[l] || dirty_len_[l])
+                    sources &= ~(1 << l);
             if(!sources)
                 return false;
 
+            muted_[dest]    = false;
+            bounce_merge_   = merge;
             bounce_dest_    = dest;
             bounce_sources_ = sources;
             bounce_pos_     = 0;
@@ -175,18 +176,7 @@ namespace daisy
         inline void SetAudition(int l) { audition_ = l < int(kNumLayers) ? l : -1; }
         inline int Audition() const { return audition_; }
 
-        /** Pick layer l and arm it: recording into it starts with the next note played, as TAPE's record
-         *  arm. An overdub under way (TAPE goes straight into one after the first take) stops first, so
-         *  it doesn't follow the pick into the new layer. Not during the first take, which sets the length. */
-        void ArmLayer(size_t l)
-        {
-            if(l >= kNumLayers || bouncing_ || (first_record && record))
-                return;
-            if(record)
-                ToggleRecord(true); // stop the overdub, keep playing
-            SetActiveLayer(l);
-            record_arm = true;
-        }
+
         inline size_t BounceDest() const { return bounce_dest_; }
 
         inline bool IsPlaying() { return playing && !first_record; }
@@ -498,6 +488,8 @@ namespace daisy
             const size_t start = bounce_pos_;
             const size_t end   = start + chunk < bounce_end_ ? start + chunk : bounce_end_;
             int16_t* const dest = mem_[bounce_dest_]->mem;
+            if(!bounce_merge_) // replace: what was on dest goes
+                std::fill(&dest[start], &dest[end], 0);
             for(size_t l = 0; l < kNumLayers; l++)
             {
                 if(!(bounce_sources_ & (1 << l)))
@@ -521,7 +513,7 @@ namespace daisy
             {
                 for(size_t l = 0; l < kNumLayers; l++)
                     if(bounce_sources_ & (1 << l))
-                        filled_[l] = false;
+                        filled_[l] = muted_[l] = false; // empty, ready to record
                 filled_[bounce_dest_] = true;
                 bouncing_ = false;
             }
@@ -570,6 +562,7 @@ namespace daisy
         volatile bool bouncing_ = false;
         size_t bounce_dest_ = 0, bounce_pos_ = 0, bounce_end_ = 0;
         uint8_t bounce_sources_ = 0;
+        bool bounce_merge_ = false;
 
         bool record, first_record, record_target;
         bool playing, play_target;

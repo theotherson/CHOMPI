@@ -1335,14 +1335,16 @@ namespace daisy
         inline bool IsLooperLayerReady(size_t layer) { return looper.LayerReady(layer); }
         inline void ServiceLooper() { looper.ServiceClears(); } // SD timer
         inline void SetLooperWindow(float start, float end) { looper.SetWindow(start, end); }
-        inline bool BounceLooperInto(size_t layer) { return looper.BounceInto(layer); }
+        inline bool BounceLooperInto(size_t layer, uint8_t sources, bool merge)
+        {
+            return looper.BounceInto(layer, sources, merge);
+        }
         inline bool IsLooperBouncing() const { return looper.IsBouncing(); }
         inline size_t LooperBounceDest() const { return looper.BounceDest(); }
         inline void ToggleLooperMute(size_t layer) { looper.ToggleMute(layer); }
         inline bool IsLooperLayerMuted(size_t layer) const { return looper.Muted(layer); }
         inline void SetLooperAudition(int layer) { looper.SetAudition(layer); } // -1: none
         inline int GetLooperAudition() const { return looper.Audition(); }
-        inline void ArmLooperLayer(size_t layer) { looper.ArmLayer(layer); }
 
         /** arm the looper: it starts recording (first take or overdub) when the input crosses threshold */
         void ArmLooper(float threshold)
