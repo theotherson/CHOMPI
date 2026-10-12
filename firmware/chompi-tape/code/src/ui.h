@@ -308,6 +308,7 @@ namespace chompi
                     // chompi key changes page to MenuPage, on both PORTA pages
                     if (i == static_cast<int>(Hardware::SwId::KEY_26)
                         && normal_page_.IsActive()
+                        && !menu_page_.IsActive() // already open: the latched layer view
                         && !boot_page_.IsActive()
                         && !rainbow_page_.IsActive()
                         && !test_page_.IsActive())

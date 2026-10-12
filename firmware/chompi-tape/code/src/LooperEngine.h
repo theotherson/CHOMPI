@@ -30,6 +30,8 @@ namespace daisy
                 layers_[i].Init(sr, mem_[i], tape_slew);
                 filled_[i] = false;
                 dirty_len_[i] = 0;
+                muted_[i] = false;
+                layer_gain_[i] = 1.f;
             }
             active_ = master_ = 0;
 
@@ -77,11 +79,14 @@ namespace daisy
                         int16_t aor = 0;
                         layers_[l].PopStereoSamps(rec_here ? in_l : 0, rec_here ? in_r : 0, &aol, &aor,
                                                   rec_here, playing);
+                        // a muted layer fades out over a few ms rather than clicking
+                        layer_gain_[l] += ((muted_[l] ? 0.f : 1.f) - layer_gain_[l]) * .002f;
+
                         // a layer waiting to be cleared stays silent, except while the reset fades everything out
                         if(!dirty_len_[l] || Master().IsResetting())
                         {
-                            sum_l += s162f(aol);
-                            sum_r += s162f(aor);
+                            sum_l += s162f(aol) * layer_gain_[l];
+                            sum_r += s162f(aor) * layer_gain_[l];
                         }
                     }
 
@@ -131,16 +136,18 @@ namespace daisy
             }
         }
 
-        /** Portastudio-style bounce: every other recorded layer is mixed into dest and left empty, freeing
-         *  it to record into. Done on the SD timer a chunk at a time, moving each sample (added into dest,
-         *  zeroed in its source) so what plays never changes. Not while recording. */
+        /** Portastudio-style bounce: every other recorded, unmuted layer is mixed into dest and left empty,
+         *  freeing it to record into; muted layers stay as they are, so muting picks what's bounced. Done on
+         *  the SD timer a chunk at a time, moving each sample (added into dest, zeroed in its source) so what
+         *  plays never changes. Not while recording, nor into a muted layer. */
         bool BounceInto(size_t dest)
         {
-            if(dest >= kNumLayers || first_record || record || record_target || bouncing_ || dirty_len_[dest])
+            if(dest >= kNumLayers || first_record || record || record_target || bouncing_ || dirty_len_[dest]
+               || muted_[dest])
                 return false;
             uint8_t sources = 0;
             for(size_t l = 0; l < kNumLayers; l++)
-                if(l != dest && filled_[l] && !dirty_len_[l])
+                if(l != dest && filled_[l] && !dirty_len_[l] && !muted_[l])
                     sources |= 1 << l;
             if(!sources)
                 return false;
@@ -153,6 +160,27 @@ namespace daisy
             return true;
         }
         inline bool IsBouncing() const { return bouncing_; }
+
+        /** Mute and solo, as on x0x: a muted layer keeps playing silently, in step */
+        void ToggleMute(size_t l)
+        {
+            if(l < kNumLayers)
+                muted_[l] = !muted_[l];
+        }
+        inline bool Muted(size_t l) const { return l < kNumLayers && muted_[l]; }
+
+        // solo l; if it already is the only one playing, bring them all back
+        void Solo(size_t l)
+        {
+            if(l >= kNumLayers)
+                return;
+            bool alone = !muted_[l];
+            for(size_t o = 0; o < kNumLayers; o++)
+                if(o != l && !muted_[o])
+                    alone = false;
+            for(size_t o = 0; o < kNumLayers; o++)
+                muted_[o] = alone ? false : o != l;
+        }
         inline size_t BounceDest() const { return bounce_dest_; }
 
         inline bool IsPlaying() { return playing && !first_record; }
@@ -386,6 +414,8 @@ namespace daisy
         void Reset()
         {
             bouncing_ = false; // the layers are being cleared anyway
+            for(auto& m : muted_)
+                m = false;
             ClearWindow();
             for(size_t l = 0; l < kNumLayers; l++)
             {
@@ -516,6 +546,9 @@ namespace daisy
         bool filled_[kNumLayers];
         volatile size_t dirty_len_[kNumLayers]; // samples left to clear, from the end down
         size_t active_, master_;
+
+        bool muted_[kNumLayers];
+        float layer_gain_[kNumLayers];
 
         volatile bool bouncing_ = false;
         size_t bounce_dest_ = 0, bounce_pos_ = 0, bounce_end_ = 0;

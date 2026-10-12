@@ -2,6 +2,7 @@
 #include "DSPEngine.h"
 #include "temp_led_stuff.h"
 #include "FileCopier.h"
+#include "LayerView.h"
 
 namespace chompi
 {
@@ -59,6 +60,19 @@ namespace chompi
             ss_bank = fx_->GetBank();
         }
 
+        // PORTA: the layer view latched open with CHOMPI up: only the keys are the menu's
+        inline bool LatchedOnly() const
+        {
+            return OnLoopPage() && fx_->LayerView() && !chompi_key_pressed && preset_mode == PresetMode::NONE;
+        }
+
+        // see-through then, so the normal page draws the knobs, play and loop underneath
+        bool IsOpaque(const daisy::UiCanvasDescriptor &display) override
+        {
+            (void)display;
+            return !LatchedOnly();
+        }
+
         void Draw(const daisy::UiCanvasDescriptor &canvasDescriptor) override
         {
             /** PTH leds */
@@ -69,6 +83,13 @@ namespace chompi
             {
                 blink_state = !blink_state;
                 last_blink = now;
+            }
+
+            if(LatchedOnly())
+            {
+                DrawKeys(now);
+                fill_led_data();
+                return;
             }
 
             // chompi key
@@ -264,6 +285,15 @@ namespace chompi
                 SetPthLedFloat(1, r, g, b);
             }
 
+            DrawKeys(now);
+
+            // ========   send the data   =========
+            fill_led_data();
+        }
+
+        // the black keys' functions and the white keys
+        void DrawKeys(uint32_t now)
+        {
             // save key
             if((preset_mode == PresetMode::SAVE_SEL 
                 || preset_mode == PresetMode::SAVING
@@ -406,10 +436,7 @@ namespace chompi
                 SetSmtLedFloat(mode, 0.f, 0.f, 0.f);
 
             if(OnLoopPage())
-                DrawLayerSelect();
-
-            // ========   send the data   =========
-            fill_led_data();
+                DrawLayerView();
         }
 
 
@@ -420,8 +447,8 @@ namespace chompi
             uint8_t page = knob_page[encoderID];
             float inc = turns * kEncoderCoarseStep;
 
-            // we're receiving a knob position via CC
-            if(stepsPerRevolution > 0)
+            // we're receiving a knob position via CC, or the layer view is latched with CHOMPI up
+            if(stepsPerRevolution > 0 || LatchedOnly())
                 return false; // fall through to normalpage
 
             float r, g, b;
@@ -637,6 +664,12 @@ namespace chompi
                 return true;
 
             bool rising = numberOfPresses == 1;
+
+            // the latched layer view with CHOMPI up: knob clicks, play and loop are the normal page's
+            if(LatchedOnly()
+               && (buttonID <= static_cast<uint16_t>(Hardware::SwId::ENC_4_SW) || buttonID == ENC_5_SW
+                   || buttonID == static_cast<uint16_t>(Hardware::SwId::ENC_6_SW) || buttonID == 33 || buttonID == 34))
+                return false;
             switch (buttonID)
             {
             // NO CONNECT, SKIP THESE
@@ -815,9 +848,10 @@ namespace chompi
             {                
                 if(OnLoopPage())
                 {
-                    // PORTA loop page: C# shows the layers on keys 1-4, D# will be the projects
+                    // PORTA loop page: C# turns the layer view on or off (it stays after CHOMPI comes up),
+                    // D# will be the projects
                     if(rising && buttonID == static_cast<uint16_t>(Hardware::SwId::KEY_16))
-                        layer_select_ = !layer_select_;
+                        fx_->SetLayerView(!fx_->LayerView());
                     else if(!rising)
                         return false; // note off falls through
                     break;
@@ -982,24 +1016,32 @@ namespace chompi
                     break;
                 }
 
-                if(layer_select_ && OnLoopPage() && preset_mode == PresetMode::NONE)
+                if(fx_->LayerView() && OnLoopPage() && preset_mode == PresetMode::NONE)
                 {
-                    // tap a layer key to record into that layer, hold it 1 s to bounce the others into it
+                    // a layer key: tap to record into that layer, hold 2 s to solo it (again: all back).
+                    // With CHOMPI: tap to mute or unmute it, hold 1 s to bounce the others into it.
+                    // The other white keys do nothing in the layer view.
                     const size_t key = KeyToSlot(buttonID);
                     if(key >= 1 && key <= kNumLayers)
                     {
                         if(rising)
                         {
-                            fx_->SetLooperLayer(key - 1);
-                            held_layer_    = int(key - 1);
-                            held_since_    = System::GetNow();
-                            bounce_fired_  = false;
+                            held_layer_   = int(key - 1);
+                            held_since_   = System::GetNow();
+                            held_shift_   = chompi_key_pressed;
+                            bounce_fired_ = false;
+                            if(!held_shift_)
+                                fx_->SetLooperLayer(key - 1);
                         }
                         else if(held_layer_ == int(key - 1))
+                        {
+                            if(held_shift_ && !bounce_fired_)
+                                fx_->ToggleLooperMute(key - 1);
                             held_layer_ = -1;
+                        }
                     }
-                    if(!rising)
-                        return false; // note off falls through
+                    if(!rising && key == kSlotNone)
+                        return false; // a black key's note off falls through
                     break;
                 }
 
@@ -1091,7 +1133,6 @@ namespace chompi
             pitch_reset = false;
             chompi_key_pressed = true;
             opened_on_loop_page_ = switch_state;
-            layer_select_ = false;
             held_layer_ = -1;
 
             if(quantized_pitch_)
@@ -1108,7 +1149,12 @@ namespace chompi
             preset_mode = PresetMode::NONE;
         }
 
-        inline void SetSwitchState(bool state) { switch_state = state; }
+        inline void SetSwitchState(bool state)
+        {
+            switch_state = state;
+            if(!state && fx_)
+                fx_->SetLayerView(false); // the layer view is the loop page's
+        }
 
         // PORTA: toggle up is the loop page
         inline bool OnLoopPage() const { return switch_state; }
@@ -1135,45 +1181,37 @@ namespace chompi
             }
         }
 
-        // loop page: C# lit, and while the layers show, keys 1-4 are the layers: green the one recorded into,
-        // white recorded, dim empty, dim red still being cleared
-        void DrawLayerSelect()
+        // loop page: C# bright while the layer view is on, and then keys 1-4 are the layers
+        void DrawLayerView()
         {
-            SetSmtLedFloat(0, layer_select_ ? 1.f : .25f, layer_select_ ? 1.f : .25f, layer_select_ ? 1.f : .25f);
+            const bool on = fx_->LayerView();
+            SetSmtLedFloat(0, on ? 1.f : .25f, on ? 1.f : .25f, on ? 1.f : .25f);
             SetSmtLedFloat(1, 0.f, 0.f, 0.f);
-            if(!layer_select_)
+            if(!on)
                 return;
 
             const uint32_t now = System::GetNow();
-            if(held_layer_ >= 0 && !bounce_fired_ && now - held_since_ >= kBounceHoldMs)
+            if(held_layer_ >= 0 && !bounce_fired_)
             {
-                fx_->BounceLooperInto(size_t(held_layer_));
-                bounce_fired_ = true;
-            }
-
-            for(uint8_t i = 1; i < 16; i++)
-            {
-                const size_t layer = i - 1;
-                if(layer >= kNumLayers)
-                    SetSmtLedFloat(25 - i, 0.f, 0.f, 0.f);
-                else if(fx_->IsLooperBouncing() && layer == fx_->LooperBounceDest()) // bouncing into it
+                if(held_shift_ && now - held_since_ >= kBounceHoldMs)
                 {
-                    const float on = (now / 100) % 2 ? 1.f : 0.f;
-                    SetSmtLedFloat(25 - i, on, on, on);
+                    fx_->BounceLooperInto(size_t(held_layer_));
+                    bounce_fired_ = true;
                 }
-                else if(layer == fx_->GetLooperLayer())
-                    SetSmtLedFloat(25 - i, green[0], green[1], green[2]);
-                else if(!fx_->IsLooperLayerReady(layer))
-                    SetSmtLedFloat(25 - i, .3f * red[0], .3f * red[1], .3f * red[2]);
-                else if(fx_->IsLooperLayerFilled(layer))
-                    SetSmtLedFloat(25 - i, 1.f, 1.f, 1.f);
-                else
-                    SetSmtLedFloat(25 - i, .15f, .15f, .15f);
+                else if(!held_shift_ && now - held_since_ >= kSoloHoldMs)
+                {
+                    fx_->SoloLooperLayer(size_t(held_layer_));
+                    bounce_fired_ = true;
+                }
             }
+            DrawLayerKeys(fx_, now);
         }
 
         bool IsClosable()
         { 
+            if(OnLoopPage() && fx_->LayerView() && switch_state == opened_on_loop_page_ && preset_mode == PresetMode::NONE)
+                return false; // the layer view latches the menu open
+
             if(
                 System::GetNow() - blink_startt > 1000                              // animation done AND
                 && ((preset_mode == PresetMode::SAVING && !copier_->IsCopying())    // (finished saving OR
@@ -1233,11 +1271,12 @@ namespace chompi
 
         bool chompi_key_pressed = false;
         bool opened_on_loop_page_ = false; // the toggle when the menu opened, the menu closes if it moves
-        bool layer_select_ = false;        // loop page: C# pressed, keys 1-4 are the layers
         int held_layer_ = -1;              // the layer key held down, for the bounce
         uint32_t held_since_ = 0;
-        bool bounce_fired_ = false;
+        bool held_shift_ = false;          // CHOMPI was down when the layer key went down
+        bool bounce_fired_ = false;        // the hold did its thing (bounce or solo)
         static constexpr uint32_t kBounceHoldMs = 1000;
+        static constexpr uint32_t kSoloHoldMs   = 2000; // as x0x
         bool blink_state = true;
         uint32_t blink_startt;
         uint32_t last_blink;
