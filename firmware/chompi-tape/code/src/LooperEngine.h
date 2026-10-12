@@ -182,6 +182,29 @@ namespace daisy
         }
         inline bool IsBouncing() const { return bouncing_; }
 
+        /** Delete the layers in mask (a bit each): emptied in the background, unmuted. A take under way
+         *  stops first. Deleting the last recorded layer empties the looper, so the next take sets a new
+         *  length. */
+        void ClearLayers(uint8_t mask)
+        {
+            if(bouncing_ || first_record)
+                return;
+            if(record || record_target)
+                ToggleRecord(true);
+            bool any_left = false;
+            for(size_t l = 0; l < num_layers_; l++)
+            {
+                if(mask & (1 << l))
+                {
+                    dirty_len_[l] = mem_[l]->length;
+                    filled_[l] = muted_[l] = false;
+                }
+                any_left |= filled_[l];
+            }
+            if(!any_left)
+                Reset();
+        }
+
         /** Mute, as on x0x: a muted layer keeps playing silently, in step */
         void ToggleMute(size_t l)
         {

@@ -1364,6 +1364,7 @@ namespace daisy
         inline bool IsLooperBouncing() const { return looper.IsBouncing(); }
         inline size_t LooperBounceDest() const { return looper.BounceDest(); }
         inline void ToggleLooperMute(size_t layer) { looper.ToggleMute(layer); }
+        inline void ClearLooperLayers(uint8_t mask) { looper.ClearLayers(mask); }
         inline bool IsLooperLayerMuted(size_t layer) const { return looper.Muted(layer); }
         inline void SetLooperAudition(int layer) { looper.SetAudition(layer); } // -1: none
         inline int GetLooperAudition() const { return looper.Audition(); }

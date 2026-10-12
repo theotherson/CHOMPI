@@ -9,8 +9,8 @@ namespace chompi
     /** PORTA loop page, track picker: white keys 1-4 are the tracks, the rest are dark.
      *  Flashing white: being bounced into. Blinking orange: held as a bounce source. Green: selected.
      *  Pink: has content. Dim white: empty. Dim red: being cleared. Muted: blinks dimly in its colour.
-     *  While one is auditioned it pulses and the others are nearly dark. */
-    inline void DrawLayerKeys(daisy::Engine* fx, uint32_t now, uint8_t sources = 0)
+     *  While one is auditioned it pulses and the others are nearly dark. Magenta: picked for deleting. */
+    inline void DrawLayerKeys(daisy::Engine* fx, uint32_t now, uint8_t sources = 0, uint8_t erase = 0)
     {
         for(uint8_t key = 1; key < 16; key++)
         {
@@ -18,7 +18,11 @@ namespace chompi
             float r = 0.f, g = 0.f, b = 0.f;
             if(layer < daisy::kNumLayers)
             {
-                if(fx->IsLooperBouncing() && layer == fx->LooperBounceDest())
+                if(erase & (1 << layer)) // picked for deleting: magenta
+                {
+                    r = b = 1.f;
+                }
+                else if(fx->IsLooperBouncing() && layer == fx->LooperBounceDest())
                     r = g = b = (now / 100) % 2 ? 1.f : 0.f;
                 else if(sources & (1 << layer))
                 {
@@ -48,9 +52,9 @@ namespace chompi
                     g *= pulse;
                     b *= pulse;
                 }
-                else if(sources & (1 << layer))
+                else if((sources | erase) & (1 << layer))
                 {
-                    // a bounce source shows as one
+                    // a bounce source, or picked for deleting, shows as one
                 }
                 else if(heard >= 0) // silenced by another's audition
                 {

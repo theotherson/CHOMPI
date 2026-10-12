@@ -90,6 +90,7 @@ namespace chompi
             if(LatchedOnly())
             {
                 DrawKeys(now);
+                DrawTrackEraseLed(now);
                 fill_led_data();
                 return;
             }
@@ -101,18 +102,26 @@ namespace chompi
                 g = 0.f;
                 b = 1.f;
             }
+            else if(preset_mode == PresetMode::ERASE_SEL && selected_slot != kSlotNone) // delete: flashes magenta
+            {
+                r = b = blink_state;
+                g = 0.f;
+            }
             else if (
                     (preset_mode == PresetMode::SAVE_SEL
-                    || preset_mode == PresetMode::ERASE_SEL
                     || preset_mode == PresetMode::COPY_DEST)
                     && selected_slot != kSlotNone)
             {
                 r = blink_state;
                 g = b = 0.f;
             }
+            else if(preset_mode == PresetMode::ERASING) // deleting: red
+            {
+                r = 1.f;
+                g = b = 0.f;
+            }
             else if (preset_mode == PresetMode::SAVING 
-                        || preset_mode == PresetMode::COPYING 
-                        || preset_mode == PresetMode::ERASING)
+                        || preset_mode == PresetMode::COPYING)
             {
                 r = g = b = blink_state;
             }
@@ -121,6 +130,7 @@ namespace chompi
                 r = g = b = 0.f;
             }
             SetPthLedFloat(0, r, g, b);
+            DrawTrackEraseLed(now);
         
             // play / overdub keys
             if(preset_mode == PresetMode::NONE)
@@ -320,7 +330,7 @@ namespace chompi
                 || preset_mode == PresetMode::NONE)
                 && !no_sd_card_)
             {
-                SetSmtLedFloat(8, green[0], green[1], green[2]); // copy
+                SetSmtLedFloat(8, 1.f, .95f, .88f); // copy: pearl
             }
             else
             {
@@ -782,6 +792,18 @@ namespace chompi
                 if(!rising && fx_)
                     fx_->SetLooperAudition(-1); // a track's audition lasts while CHOMPI is held
 
+                if(rising && track_erase_) // delete the tracks picked
+                {
+                    if(erase_mask_)
+                    {
+                        fx_->ClearLooperLayers(erase_mask_);
+                        deleted_at_ = System::GetNow();
+                    }
+                    track_erase_ = false;
+                    erase_mask_ = 0;
+                    break;
+                }
+
                 if(rising && selected_slot != kSlotNone)
                 {
                     if(preset_mode == PresetMode::SAVE_SEL)
@@ -943,6 +965,19 @@ namespace chompi
 
             case static_cast<uint16_t>(Hardware::SwId::KEY_23): // erase
             {
+                // PORTA track picker: erase picks tracks to delete (magenta); CHOMPI deletes them
+                if(latch_ == Latch::LAYERS && OnLoopPage() && preset_mode == PresetMode::NONE)
+                {
+                    if(rising)
+                    {
+                        track_erase_ = !track_erase_;
+                        erase_mask_ = 0;
+                    }
+                    else
+                        return false; // note off falls through
+                    break;
+                }
+
                 if(rising && !no_sd_card_)
                 {
                     if(preset_mode == PresetMode::NONE)
@@ -1077,6 +1112,14 @@ namespace chompi
                     // comes up or, played from a stop, it reaches its end.
                     // Other white keys: nothing.
                     const size_t key = KeyToSlot(buttonID);
+                    if(track_erase_) // picking tracks to delete: a tap toggles one
+                    {
+                        if(rising && key >= 1 && key <= kNumLayers && fx_->IsLooperLayerFilled(key - 1))
+                            erase_mask_ ^= 1 << (key - 1);
+                        if(!rising && key == kSlotNone)
+                            return false;
+                        break;
+                    }
                     if(key >= 1 && key <= kNumLayers)
                     {
                         const uint8_t bit = 1 << (key - 1);
@@ -1220,6 +1263,8 @@ namespace chompi
             SetLatch(Latch::NONE);
             held_layer_ = -1;
             held_mask_ = source_mask_ = 0;
+            track_erase_ = false;
+            erase_mask_ = 0;
 
             if(quantized_pitch_)
             {
@@ -1252,6 +1297,8 @@ namespace chompi
             {
                 fx_->SetLooperAudition(-1);
                 source_mask_ = 0;
+                track_erase_ = false;
+                erase_mask_ = 0;
             }
             latch_ = latch;
         }
@@ -1276,11 +1323,20 @@ namespace chompi
                 fx_->SamplerArm(threshold);
         }
 
+        // the CHOMPI key while deleting tracks: magenta, flashing, while they're picked; red just after
+        void DrawTrackEraseLed(uint32_t now)
+        {
+            if(track_erase_ && erase_mask_)
+                SetPthLedFloat(0, blink_state ? 1.f : 0.f, 0.f, blink_state ? 1.f : 0.f);
+            else if(now - deleted_at_ < 400)
+                SetPthLedFloat(0, 1.f, 0.f, 0.f);
+        }
+
         // loop page: G# bright while the layer picker is open, and then keys 1-4 are the layers
         void DrawLayerView()
         {
             const bool on = latch_ == Latch::LAYERS;
-            SetSmtLedFloat(3, on ? 1.f : .25f, on ? 1.f : .25f, on ? 1.f : .25f);
+            SetSmtLedFloat(3, 0.f, on ? 1.f : .25f, 0.f); // the track menu key: green
             if(!on)
                 return;
 
@@ -1293,7 +1349,7 @@ namespace chompi
                 fx_->SetLooperAudition(held_layer_); // until CHOMPI comes up, or it ends
                 arm_fired_ = true;
             }
-            DrawLayerKeys(fx_, now, source_mask_);
+            DrawLayerKeys(fx_, now, source_mask_, track_erase_ ? erase_mask_ : 0);
         }
 
         bool IsClosable()
@@ -1369,6 +1425,9 @@ namespace chompi
         static constexpr uint32_t kAuditionHoldMs = 2000;
         // layer picker: layers held without CHOMPI, and those held long enough to be bounce sources
         uint8_t held_mask_ = 0, source_mask_ = 0;
+        bool track_erase_ = false;         // erase pressed in the track picker: picking tracks to delete
+        uint8_t erase_mask_ = 0;
+        uint32_t deleted_at_ = 0;
         uint32_t press_time_[kNumLayers] = {};
         static constexpr uint32_t kSourceHoldMs = 500;
         bool blink_state = true;
