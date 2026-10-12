@@ -26,6 +26,10 @@ static constexpr float kHpGain = .2f;
 static constexpr float kMicGain = 5.f;
 static constexpr float kLineInGain = 3.f;
 static constexpr size_t kMaxPoly = 7;
+
+// PORTA knob 1's pages (CHOMPI's in brackets): level (overdub level), threshold (input level),
+// tuning (stepped tuning). The LFO will be a fourth.
+static constexpr uint8_t kKnob1Level = 0, kKnob1Threshold = 1, kKnob1Tuning = 2;
 static_assert(kMaxPoly == daisy::kNumSampleFifos, "a read-ahead buffer per voice, see SampleFifo");
 
 namespace daisy

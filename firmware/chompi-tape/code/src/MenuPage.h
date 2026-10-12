@@ -304,18 +304,25 @@ namespace chompi
                 {
                     r = g = b = 1.f;
                 }
-                else if(knob_page[0] == 0)
+                else if(knob_page[0] == kKnob1Tuning) // stepped tuning
                 {
                     float idx = enc_values[0][0] < .5f ? enc_values[0][0] * 2.f : (1.f - enc_values[0][0]) * 2.f; // 0 - 1 - 0
                     r = color_quad_xfade(med_blue[0], green[0], yellow[0], red[0], idx);
                     g = color_quad_xfade(med_blue[1], green[1], yellow[1], red[1], idx);
                     b = color_quad_xfade(med_blue[2], green[2], yellow[2], red[2], idx);
                 }
-                else if(knob_page[0] == 1)
+                else if(knob_page[0] == kKnob1Threshold) // input level, as the volume knob's
                 {
-                    r = color_triple_xfade(purple[0], 0.f, yellow[0], fx_->GetPan());
-                    g = color_triple_xfade(purple[1], 0.f, yellow[1], fx_->GetPan());
-                    b = color_triple_xfade(purple[2], 0.f, yellow[2], fx_->GetPan());
+                    r = color_xfade(blue[0], red[0], enc_values[1][5]);
+                    g = color_xfade(blue[1], red[1], enc_values[1][5]);
+                    b = color_xfade(blue[2], red[2], enc_values[1][5]);
+                }
+                else // overdub level: red keeps nothing, green keeps it all
+                {
+                    const float dub = fx_->GetLooperDubGain();
+                    r = color_triple_xfade(red[0], yellow[0], green[0], dub);
+                    g = color_triple_xfade(red[1], yellow[1], green[1], dub);
+                    b = color_triple_xfade(red[2], yellow[2], green[2], dub);
                 }
 
                 SetPthLedFloat(1, r, g, b);
@@ -499,23 +506,17 @@ namespace chompi
             float r, g, b;
             if(preset_mode == PresetMode::NONE)
             {
-                if(encoderID == 0)
+                if(encoderID == 0) // PORTA knob 1 with CHOMPI: overdub level, input level, stepped tuning
                 {
-                    if(page == 0) // stepped pitch
+                    if(page == kKnob1Level) // how much of a track an overdub keeps
+                        fx_->IncrementLooperDubGain(inc);
+                    else if(page == kKnob1Threshold) // input level: the volume knob's second page too
                     {
-                        if(quantized_pitch_)
-                            enc_values[0][0] = fx_->SetGlobalPitchQuantized(turns, enc_values[0][0]);                                
-                        else
-                        {
-                            enc_values[page][encoderID] += turns * kEncoderFineStep;
-                            enc_values[page][encoderID] = fclamp(enc_values[page][encoderID], 0.f, 1.f);
-                            fx_->SetGlobalPitchFree(enc_values[0][0]);
-                        } 
+                        enc_values[1][5] = fclamp(enc_values[1][5] + inc, 0.f, 1.f);
+                        fx_->SetInputGain(enc_values[1][5]);
                     }
-                    else if(page == 1) // pan
-                    {
-                        fx_->SetPan(fx_->GetPan() + inc);
-                    }
+                    else
+                        enc_values[0][0] = fx_->SetGlobalPitchQuantized(turns, enc_values[0][0]);
 
                     DumpValuePresets();
                 }
@@ -734,20 +735,21 @@ namespace chompi
                 const int page = knob_page[0];
                 pitch_reset = rising;
 
-                if(rising)
+                if(rising) // PORTA: CHOMPI + click resets knob 1's page
                 {
-                    if(page == 0)
+                    if(page == kKnob1Tuning)
                     {
                         enc_values[0][0] = enc_defaults[0][0];
                         fx_->SetGlobalPitch(1.f);
                         fx_->SetReverse(false);
                         fx_->ResetGlobalPitchQuant();
                     }
-                    else if(rising && page == 1)
+                    else if(page == kKnob1Threshold)
+                        enc_values[2][0] = 0.f; // off
+                    else
                     {
                         enc_values[1][0] = enc_defaults[1][0];
-                        fx_->SetPan(.5f);
-                        fx_->SetGain(.704f);
+                        fx_->SetGain(enc_defaults[1][0]);
                     }
 
                     DumpValuePresets();

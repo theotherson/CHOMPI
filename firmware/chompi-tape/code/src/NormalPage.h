@@ -119,7 +119,7 @@ namespace chompi
     static const float dark_orange[3] = {.77f, .38f, .06f};
     static const float yellow_green[3] = {.706f, 1.f, 0.f};
 
-    static const uint8_t knob_num_pages[6] = {3, 2, 2, 3, 1, 2}; // PORTA: knob 1's third page is the overdub level
+    static const uint8_t knob_num_pages[6] = {3, 2, 2, 3, 1, 2}; // PORTA: knob 1: level, threshold, tuning
 
     class NormalPage : public daisy::UiPage
     {
@@ -281,36 +281,29 @@ namespace chompi
                 float b = 0.f;
                 switch (i)
                 {
-                case 0: // speed, gain, pan
+                case 0: // knob 1: level, threshold, tuning
                 {
-                    if(OnSamplerPage()) // recording threshold, red while the input is above it (from MIXTAPE)
+                    fx_->SetGain(enc_values[1][0]); // kept applied, as TAPE did on its gain page
+                    if(page == kKnob1Threshold) // red while the input is above it (from MIXTAPE)
                     {
                         const float t = enc_values[2][0];
                         r = g = b = t;
                         if(t > 0.f && fx_->GetVUSample(VUTarget::VU_INPUT) >= Threshold())
                             g = b = 0.f;
                     }
-                    else if(page == 0) // speed
+                    else if(page == kKnob1Tuning)
                     {
                         float idx = enc_values[0][0] < .5f ? enc_values[0][0] * 2.f : (1.f - enc_values[0][0]) * 2.f; // 0 - 1 - 0
                         r = color_quad_xfade(med_blue[0], green[0], yellow[0], red[0], idx);
                         g = color_quad_xfade(med_blue[1], green[1], yellow[1], red[1], idx);
                         b = color_quad_xfade(med_blue[2], green[2], yellow[2], red[2], idx);
                     }
-                    else if(page == 1) // gain
+                    else // level
                     {
-                        r = color_triple_xfade(blue[0], pink[0], red[0], value);
-                        g = color_triple_xfade(blue[1], pink[1], red[1], value);
-                        b = color_triple_xfade(blue[2], pink[2], red[2], value);
-
-                        fx_->SetGain(value);
-                    }
-                    else // overdub level: red keeps nothing, green keeps it all
-                    {
-                        const float dub = fx_->GetLooperDubGain();
-                        r = color_triple_xfade(red[0], yellow[0], green[0], dub);
-                        g = color_triple_xfade(red[1], yellow[1], green[1], dub);
-                        b = color_triple_xfade(red[2], yellow[2], green[2], dub);
+                        const float v = enc_values[1][0];
+                        r = color_triple_xfade(blue[0], pink[0], red[0], v);
+                        g = color_triple_xfade(blue[1], pink[1], red[1], v);
+                        b = color_triple_xfade(blue[2], pink[2], red[2], v);
                     }
 
                     SetPthLedFloat(1, r, g, b);
@@ -895,10 +888,30 @@ namespace chompi
             if (init_ignore || copier_->IsCopying())
                 return false;
 
-            // PORTA sampler page: knob 1 is the recording threshold, off all the way down (from MIXTAPE)
-            if(encoderID == 0 && OnSamplerPage() && stepsPerRevolution == 0)
+            // PORTA knob 1, both pages: level, threshold (off all the way down, from MIXTAPE), tuning
+            if(encoderID == 0 && stepsPerRevolution == 0)
             {
-                enc_values[2][0] = fclamp(enc_values[2][0] + turns * kEncoderCoarseStep, 0.f, 1.f);
+                switch(knob_page[0])
+                {
+                    case kKnob1Level:
+                        enc_values[1][0] = fclamp(enc_values[1][0] + turns * kEncoderCoarseStep, 0.f, 1.f);
+                        fx_->SetGain(enc_values[1][0]);
+                        DumpValuePresets();
+                        break;
+                    case kKnob1Threshold:
+                        enc_values[2][0] = fclamp(enc_values[2][0] + turns * kEncoderCoarseStep, 0.f, 1.f);
+                        break;
+                    default: // tuning: TAPE's pitch page
+                        if(quantized_pitch_)
+                            enc_values[0][0] = fx_->SetGlobalPitchQuantized(turns, enc_values[0][0]);
+                        else
+                        {
+                            enc_values[0][0] = fclamp(enc_values[0][0] + turns * kEncoderFineStep, 0.f, 1.f);
+                            fx_->SetGlobalPitchFree(enc_values[0][0]);
+                        }
+                        DumpValuePresets();
+                        break;
+                }
                 return true;
             }
 
@@ -922,13 +935,6 @@ namespace chompi
                     fx_->SetSamplerSpeed(fx_->SamplerSpeed() + turns * kEncoderFineStep);
                 else
                     fx_->SetSamplerScrub(turns);
-                return true;
-            }
-
-            // PORTA loop page: knob 1's third page is the overdub level, how much of a layer an overdub keeps
-            if(encoderID == 0 && knob_page[0] == 2 && stepsPerRevolution == 0)
-            {
-                fx_->IncrementLooperDubGain(turns * kEncoderCoarseStep);
                 return true;
             }
 
