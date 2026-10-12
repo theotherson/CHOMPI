@@ -440,7 +440,8 @@ int main(void)
     hw.usb_sw.Write(true);     // take USB control
     
     copier.Init(hw.seed.AudioSampleRate(), &engine, &chompi_buff, &loop_buff[0]); // looper files are layer 1
-    engine.FillDefaultSample(hw.seed.AudioSampleRate());
+    // PORTA: the sample buffer starts empty, silent until a sample is loaded or recorded (TAPE put a
+    // default tone in it here)
 
     while (1)
     {
