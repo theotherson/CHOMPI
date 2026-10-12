@@ -1069,8 +1069,8 @@ namespace chompi
                 if(latch_ == Latch::LAYERS && OnLoopPage() && preset_mode == PresetMode::NONE)
                 {
                     // the layer picker. Tap a layer: on / off. Hold layers ~0.5 s: they blink orange as bounce
-                    // sources; tapping another layer then bounces them into it, replacing what's there (with
-                    // CHOMPI: merging). CHOMPI + tap a layer: select it, ending any audition; CHOMPI + hold it
+                    // sources, and stay so; tapping a source takes it back out, tapping another layer bounces
+                    // them into it, replacing what's there (with CHOMPI: merging). CHOMPI + tap a layer: select it, ending any audition; CHOMPI + hold it
                     // 2 s: audition it (only it plays, until held again or the picker closes).
                     // Other white keys: nothing.
                     const size_t key = KeyToSlot(buttonID);
@@ -1104,18 +1104,21 @@ namespace chompi
                         }
                         else if(held_mask_ & bit)
                         {
-                            // decided on release: a source just lets go; a tap while others are sources is
-                            // the bounce's destination (merging with CHOMPI held); any other tap is on / off
-                            if(source_mask_ & bit)
+                            // decided on release. Held long enough: it stays a source (latched, orange).
+                            // A tap on a source takes it back out; a tap on another layer while there are
+                            // sources is the bounce's destination (merging with CHOMPI held); otherwise a
+                            // tap is on / off.
+                            const bool tap = System::GetNow() - press_time_[key - 1] < kSourceHoldMs;
+                            if(tap && (source_mask_ & bit))
+                                source_mask_ &= ~bit;
+                            else if(tap && source_mask_)
                             {
-                                // a source letting go
-                            }
-                            else if(source_mask_)
                                 fx_->BounceLooperInto(key - 1, source_mask_, chompi_key_pressed);
-                            else
+                                source_mask_ = 0;
+                            }
+                            else if(tap)
                                 fx_->ToggleLooperMute(key - 1);
                             held_mask_ &= ~bit;
-                            source_mask_ &= ~bit;
                         }
                     }
                     if(!rising && key == kSlotNone)
@@ -1239,11 +1242,14 @@ namespace chompi
         // PORTA: toggle up is the loop page
         inline bool OnLoopPage() const { return switch_state; }
 
-        // open or close a picker; closing the layer picker ends an audition
+        // open or close a picker; closing the layer picker ends an audition and drops bounce sources
         void SetLatch(Latch latch)
         {
             if(latch != Latch::LAYERS && fx_)
+            {
                 fx_->SetLooperAudition(-1);
+                source_mask_ = 0;
+            }
             latch_ = latch;
         }
 
