@@ -739,8 +739,9 @@ namespace chompi
             case ENC_5_SW:
                 return false;
 
+            // PORTA: auto-loop and sustain are for playing notes, so these are the 4TRACK page's only
             case static_cast<uint16_t>(Hardware::SwId::ENC_1_SW): // attack knob
-                if(rising)
+                if(rising && OnLoopPage())
                 {
                     fx_->ToggleAutoLoop();
                     float on = fx_->GetAutoLoop();
@@ -750,7 +751,7 @@ namespace chompi
             break;
 
             case static_cast<uint16_t>(Hardware::SwId::ENC_2_SW): // decay knob
-                if(rising)
+                if(rising && OnLoopPage())
                 {
                     fx_->ToggleSustainActive();
                     float on = fx_->GetSustainActive();
