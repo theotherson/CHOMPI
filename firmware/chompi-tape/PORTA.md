@@ -54,7 +54,7 @@ is open, the knobs, play and loop work as normal unless CHOMPI is held.
 
 | Key | Function |
 |---|---|
-| low C# / D# | **Sample picker:** chromatic / one-shot banks, again to scroll banks (as TAPE). Pick a sample on the white keys (one-shots: any key) to close it |
+| low C# / D# | **Sample picker:** chromatic / one-shot banks, again to scroll banks (as TAPE). Tap a slot to pick it and close (one-shots: any key); **CHOMPI + a slot auditions it** and keeps the picker open |
 | low F# | Slice machine (later) |
 | low G# | **Layer picker** (see Layer view) |
 | low A# | Nothing: no input select on the loop page |
@@ -159,13 +159,12 @@ CHOMPI + G# on the loop page opens it, and it **stays open** (the CHOMPI menu la
 
 | Gesture | Does |
 |---|---|
-| tap a layer key | record into that layer, and close the picker |
-| hold a layer key 2 s | solo it; hold the soloed layer 2 s to bring all back (as x0x) |
-| CHOMPI + tap a layer key | mute / unmute it (blinks slowly while muted) |
-| CHOMPI + hold a layer key 1 s | bounce into it |
+| tap a layer key | turn it on / off (mute); off is nearly dark |
+| CHOMPI + a layer key | hear only that layer while held |
+| hold a layer key 2 s | it blinks red and recording into it is armed; on release the picker closes, the loop key blinks, and the next note played starts the take |
 
-LEDs: green = recording into, white = recorded, dim = empty, dim red = being cleared, flashing white = being
-bounced into. Mutes aren't saved and reset with the looper.
+LEDs: green = the layer recorded into, white = recorded, dim = empty, dim red = being cleared, blinking red =
+armed, flashing white = being bounced into. Mutes aren't saved and reset with the looper.
 
 ### How the four layers work (draft)
 
@@ -177,7 +176,8 @@ bounced into. Mutes aren't saved and reset with the looper.
   and can't be recorded into.
 - Each layer takes unlimited overdubs, merged into that layer. Four is the number of *separate* layers
   (memory: 4 × 55 s stereo).
-- **Bounce** (Portastudio style): in the layer view, hold CHOMPI and hold a layer key for 1 s. Every other
+- **Bounce** (Portastudio style) **(open: needs a new gesture; suggested: the copy key, then the destination
+  layer)**. Every other
   recorded, *unmuted* layer is mixed into it and emptied, ready to record again; muted layers stay, so muting
   picks what's bounced. What plays doesn't change; it takes about a third of a second, and the key flashes
   meanwhile. This replaces adding more layers.
