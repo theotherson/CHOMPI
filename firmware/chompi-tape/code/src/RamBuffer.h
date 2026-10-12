@@ -10,6 +10,9 @@ namespace daisy
     // The sample buffer and the four looper layers are each this size.
     static const size_t kMaxRamBuffSize = 10567680 / 2;
 
+    // PORTA: the sample buffer holds 10 s (as SK-1 / SP-303-ish limits go, and it frees ~8.6 MB), same rounding
+    static const size_t kMaxSampleSize = 1925120 / 2;
+
     // a recording waiting for its threshold keeps ~6ms before it, and ignores ~100ms of key noise (from MIXTAPE)
     static const size_t kRecPreRoll = 576;
     static const uint8_t kRecIgnoreWraps = 17;
@@ -17,21 +20,24 @@ namespace daisy
     // just a buffer with its length
     struct RamBufferMemory
     {
-        // pointer to array of size kMaxRamBuffSize
-        void Init(int16_t* m)
+        // m: an array of capacity samples (kMaxRamBuffSize unless given), plus room for the threshold's
+        // pre-roll behind it where a recording waits for one
+        void Init(int16_t* m, size_t cap = kMaxRamBuffSize)
         {
-            mem = m;
+            mem      = m;
+            capacity = cap;
         }
 
         int16_t* mem;
         size_t length;
+        size_t capacity = kMaxRamBuffSize;
 
         // PORTA: the part of the recording that loops; win_end 0 is all of it
         size_t win_start = 0, win_end = 0;
 
         void Clear()
         {
-            std::fill(&mem[0], &mem[kMaxRamBuffSize], 0);
+            std::fill(&mem[0], &mem[capacity], 0);
         }
     };
 
@@ -52,8 +58,8 @@ namespace daisy
 
         void BlockRead(int16_t* copy_buff, size_t size)
         {
-            if(read_head + size > kMaxRamBuffSize)
-                size = kMaxRamBuffSize - read_head;
+            if(read_head + size > buff->capacity)
+                size = buff->capacity - read_head;
             if(read_head + size > buff->length)
                 size = buff->length - read_head;
 
@@ -64,7 +70,7 @@ namespace daisy
         void StereoRead(int16_t* l, int16_t* r, bool rev)
         {
             const size_t new_read_head = read_head + 2;
-            if(!rev && new_read_head <= LoopEnd() && new_read_head <= kMaxRamBuffSize)
+            if(!rev && new_read_head <= LoopEnd() && new_read_head <= buff->capacity)
             {
                 *l = buff->mem[read_head];
                 *r = buff->mem[read_head + 1];
@@ -84,8 +90,8 @@ namespace daisy
 
         void BlockWrite(int16_t* copy_buff, size_t size)
         {
-            if(write_head + size > kMaxRamBuffSize)
-                size = kMaxRamBuffSize - write_head;
+            if(write_head + size > buff->capacity)
+                size = buff->capacity - write_head;
 
             std::copy(copy_buff, &copy_buff[size], &buff->mem[write_head]);
             write_head += size;
@@ -98,7 +104,7 @@ namespace daisy
             if(!rev)
             {
                 const size_t new_write_head = write_head + 2;
-                if(new_write_head <= kMaxRamBuffSize)
+                if(new_write_head <= buff->capacity)
                 {
                     buff->mem[write_head] = l;
                     buff->mem[write_head + 1] = r;
@@ -132,7 +138,7 @@ namespace daisy
         }
 
         inline size_t GetReadHead() { return read_head; }
-        inline bool ReadEOF() { return read_head >= LoopEnd() || read_head >= kMaxRamBuffSize; }
+        inline bool ReadEOF() { return read_head >= LoopEnd() || read_head >= buff->capacity; }
         inline bool ReadLoop(bool rev)
         {
             return (rev && (read_head <= LoopStart() || read_head > LoopEnd())) || (!rev && ReadEOF());
@@ -140,7 +146,7 @@ namespace daisy
 
         void SetReadHead(size_t pos) 
         { 
-            if(pos <= kMaxRamBuffSize && pos <= buff->length)
+            if(pos <= buff->capacity && pos <= buff->length)
                 read_head = pos;
         }
         
@@ -155,13 +161,13 @@ namespace daisy
         }
 
         inline size_t GetWriteHead() { return write_head; }
-        inline bool WriteEOF() { return write_head >= LoopEnd() || write_head >= kMaxRamBuffSize; }
-        inline bool WriteFullLength() { return write_head >= kMaxRamBuffSize; }
+        inline bool WriteEOF() { return write_head >= LoopEnd() || write_head >= buff->capacity; }
+        inline bool WriteFullLength() { return write_head >= buff->capacity; }
         inline bool WriteLoop(bool rev) { return (rev && write_head <= LoopStart()) || (!rev && WriteEOF()); }
 
         void SetWriteHead(size_t pos) 
         {
-            if(pos <= kMaxRamBuffSize && pos <= buff->length)
+            if(pos <= buff->capacity && pos <= buff->length)
                 write_head = pos;
         }
 
@@ -179,22 +185,22 @@ namespace daisy
         {
             if(rev && write_head >= LoopStart() + 2)
                 write_head -= 2;
-            else if(!rev && write_head + 2 <= LoopEnd() && write_head + 2 < kMaxRamBuffSize)
+            else if(!rev && write_head + 2 <= LoopEnd() && write_head + 2 < buff->capacity)
                 write_head += 2;
         }
 
         // the pre-roll loops behind the buffer, so the old sample stays until the threshold (from MIXTAPE)
         bool PreRollWrite(int16_t l, int16_t r)
         {
-            buff->mem[kMaxRamBuffSize + write_head]     = l;
-            buff->mem[kMaxRamBuffSize + write_head + 1] = r;
+            buff->mem[buff->capacity + write_head]     = l;
+            buff->mem[buff->capacity + write_head + 1] = r;
             write_head = (write_head + 2) % kRecPreRoll;
             return !write_head;
         }
 
         void EndPreRoll()
         {
-            const int16_t* const ring = &buff->mem[kMaxRamBuffSize];
+            const int16_t* const ring = &buff->mem[buff->capacity];
             const size_t head = write_head;
             Reset();
             std::rotate_copy(ring, ring + head, ring + kRecPreRoll, &buff->mem[0]);

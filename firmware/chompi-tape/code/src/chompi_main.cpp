@@ -34,7 +34,7 @@ int16_t DSY_SDRAM_BSS loop_mem[kNumLayers][kMaxRamBuffSize];
 
 RamBufferMemory chompi_buff;
 // the threshold's pre-roll lives behind the buffer, 8K keeps the next one aligned
-int16_t DSY_SDRAM_BSS chompi_mem[kMaxRamBuffSize + 4096]; 
+int16_t DSY_SDRAM_BSS chompi_mem[kMaxSampleSize + 4096]; // 10 s
 
 daisysp::Oscillator osc;
 
@@ -391,7 +391,7 @@ int main(void)
 
     for(size_t l = 0; l < kNumLayers; l++)
         loop_buff[l].Init(&loop_mem[l][0]);
-    chompi_buff.Init(&chompi_mem[0]);
+    chompi_buff.Init(&chompi_mem[0], kMaxSampleSize);
     engine.Init(hw.seed.AudioSampleRate(), &reverb, &del_mem[0], 
                 loop_buff, &chompi_buff, 
                 options.record_latch, options.tape_slew_on,
