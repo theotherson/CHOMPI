@@ -137,6 +137,10 @@ is open, the knobs, play and loop work as normal unless CHOMPI is held.
 
 ### Sampler page
 
+The **sample buffer** is one memory: the sampler page's loop path (play / loop keys) and the top white key
+(TAPE's slot 15; every key on the sampler page) both play it. It **starts empty** and is silent until a slot is
+held to load it or the input is recorded; a loaded or baked sample starts looping at once, as a recording does.
+
 The menu is **always shown** on the sampler page, no CHOMPI needed: black keys are always their functions,
 white keys show the slots but play the sample (save / copy / erase still pick slots with them). CHOMPI held
 still shows the full menu. The loop key's LED: off while the buffer's empty; blinking red armed, red first take,
