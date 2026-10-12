@@ -161,7 +161,7 @@ CHOMPI + G# on the loop page opens it, and it **stays open** (the CHOMPI menu la
 |---|---|
 | tap a layer key | turn it on / off (mute); off is nearly dark |
 | CHOMPI + tap a layer key | **select it** as the layer to record into (even if it already is), ending any audition |
-| CHOMPI + hold a layer key 2 s | audition it: only that layer plays (it pulses), until held again, a CHOMPI + tap, or the picker closes |
+| CHOMPI + hold a layer key 2 s | audition it: only that layer plays (it pulses), until held again, a CHOMPI + tap, or the picker closes. With the looper stopped it plays from the top for the audition and stops after |
 | hold layer keys ~0.5 s | they blink orange as **bounce sources**, and stay so after they're let go |
 | tap an orange source | take it back out of the bounce |
 | tap another layer | **bounce** the sources into it, **replacing** what's on it (Portastudio's way) |
