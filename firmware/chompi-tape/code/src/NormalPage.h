@@ -638,7 +638,10 @@ namespace chompi
             SetPthLedFloat(led_map[5], r, g, b);
 
             // ========   send the data   =========
-            fill_led_data();
+            // under the see-through menu (a latched PORTA picker) it sends the finished frame; sending
+            // this half-drawn one too flickers the normal page's key colours through
+            if(!covered_)
+                fill_led_data();
         }
 
         bool OnButton(uint16_t buttonID,
@@ -1065,6 +1068,8 @@ namespace chompi
             switch_state = state; 
         }
 
+        inline void SetCovered(bool covered) { covered_ = covered; }
+
         // PORTA: the toggle picks the page. Down (TAPE's record position, input monitored) is the sampler page.
         inline bool OnSamplerPage() const { return !switch_state; }
 
@@ -1124,6 +1129,7 @@ namespace chompi
         bool switch_state = false;
         bool chompi_key_pressed = false;
         float loop_start_ = 0.f, loop_end_ = 1.f; // loop page: the window of the recorded loop
+        bool covered_ = false;                    // the menu is open above, drawing on top
         uint8_t* knob_page;
         bool quantized_pitch_;
         bool split_delay_;

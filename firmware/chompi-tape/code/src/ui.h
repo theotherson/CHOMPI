@@ -291,6 +291,7 @@ namespace chompi
                 {
                     // this should be smoothed
                     normal_page_.SetSwitchState(toggle_state);
+                    normal_page_.SetCovered(menu_page_.IsActive());
                     test_page_.SetSwitchState(toggle_state);
                     menu_page_.SetSwitchState(toggle_state);
                 }
