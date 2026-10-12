@@ -119,7 +119,7 @@ namespace chompi
     static const float dark_orange[3] = {.77f, .38f, .06f};
     static const float yellow_green[3] = {.706f, 1.f, 0.f};
 
-    static const uint8_t knob_num_pages[6] = {2, 2, 2, 3, 1, 2};
+    static const uint8_t knob_num_pages[6] = {3, 2, 2, 3, 1, 2}; // PORTA: knob 1's third page is the overdub level
 
     class NormalPage : public daisy::UiPage
     {
@@ -304,6 +304,13 @@ namespace chompi
                         b = color_triple_xfade(blue[2], pink[2], red[2], value);
 
                         fx_->SetGain(value);
+                    }
+                    else // overdub level: red keeps nothing, green keeps it all
+                    {
+                        const float dub = fx_->GetLooperDubGain();
+                        r = color_triple_xfade(red[0], yellow[0], green[0], dub);
+                        g = color_triple_xfade(red[1], yellow[1], green[1], dub);
+                        b = color_triple_xfade(red[2], yellow[2], green[2], dub);
                     }
 
                     SetPthLedFloat(1, r, g, b);
@@ -873,6 +880,13 @@ namespace chompi
             if(encoderID == 0 && OnSamplerPage() && stepsPerRevolution == 0)
             {
                 enc_values[2][0] = fclamp(enc_values[2][0] + turns * kEncoderCoarseStep, 0.f, 1.f);
+                return true;
+            }
+
+            // PORTA loop page: knob 1's third page is the overdub level, how much of a layer an overdub keeps
+            if(encoderID == 0 && knob_page[0] == 2 && stepsPerRevolution == 0)
+            {
+                fx_->IncrementLooperDubGain(turns * kEncoderCoarseStep);
                 return true;
             }
 
