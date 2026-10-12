@@ -481,7 +481,21 @@ namespace daisy
             float monitor[2][size];
             std::fill(&monitor[0][0], &monitor[1][size], 0.f);
 
-            if(monitor_mode == MonitorMode::BOTH)
+            // PORTA sampler page, FX pre (mid C#): the input alone goes through the FX and is recorded so,
+            // so here it's only measured, not added; it joins the mix after the FX (below)
+            const bool input_fx = sampler_page_ && fx_pre_loop && in_source != InputSource::RESAMPLE && !baking_;
+            if(input_fx)
+            {
+                float scratch_l[size], scratch_r[size];
+                std::fill(scratch_l, scratch_l + size, 0.f);
+                std::fill(scratch_r, scratch_r + size, 0.f);
+                float* scratch[2] = {scratch_l, scratch_r};
+                if(in_source == InputSource::MIC)
+                    ApplyMicMonitor(in, scratch, size, &monitor[0][0]);
+                else if(in_source == InputSource::LINE_IN)
+                    ApplyLineMonitor(in, scratch, size, &monitor[0][0]);
+            }
+            else if(monitor_mode == MonitorMode::BOTH)
             {
                 if(in_source == InputSource::MIC)
                     ApplyMicMonitor(in, out, size, &monitor[0][0]);
@@ -514,6 +528,25 @@ namespace daisy
 
             if(baking_)
                 BakeBlock(out, size);
+            else if(input_fx)
+            {
+                // the input through the FX, heard and recorded so; the sample loop and the rest play dry
+                float fx_in[2][size];
+                std::copy(monitor[0], monitor[0] + size, fx_in[0]);
+                std::copy(monitor[1], monitor[1] + size, fx_in[1]);
+                ApplyFx(fx_in[0], fx_in[1], size);
+                for(size_t i = 0; i < size; i++)
+                {
+                    out[0][i] += fx_in[0][i];
+                    out[1][i] += fx_in[1][i];
+                }
+                sampler_.CheckRecordReady();
+                sampler_.CheckReset();
+                if(!sampler_.IsRecording())
+                    sampler_.SetDubGain(1.f);
+                sampler_.Process(fx_in[0], fx_in[1], out[0], out[1], size);
+                looper.Process(out[0], out[1], size);
+            }
             else
             {
                 // PORTA sampler: the sample loop joins before the FX, so they shape it as it plays. Its input
@@ -546,15 +579,15 @@ namespace daisy
             std::copy(out[0], out[0] + size, out[2]);
             std::copy(out[1], out[1] + size, out[3]);
 
-            // add the dry monitor to the HPs only
-            if (monitor_mode == MonitorMode::HP && input_monitor)
+            // add the dry monitor to the HPs only (not with the sampler's input FX: it's in already)
+            if (!input_fx && monitor_mode == MonitorMode::HP && input_monitor)
             {
                 if (in_source == InputSource::MIC)
                     ApplyMicMonitor(in, out, size, &monitor[0][0]);
                 if (in_source == InputSource::LINE_IN)
                     ApplyLineMonitor(in, out, size, &monitor[0][0]);
             }
-            else if (monitor_mode == MonitorMode::SEND_RET)
+            else if (!input_fx && monitor_mode == MonitorMode::SEND_RET)
             {
                 ApplyLineMonitor(in, out, size, &monitor[0][0]);
             }
@@ -1494,6 +1527,8 @@ namespace daisy
         }
         inline float SamplerSpeed() const { return sampler_speed_; }
         inline void SetSamplerScrub(float scrub) { sampler_.SetScrub(scrub); }
+        // the sampler page is up: mid C#'s pre then puts the FX on the input
+        inline void SetSamplerPage(bool on) { sampler_page_ = on; }
         inline float GetSamplerScrub() { return sampler_.GetScrub(); }
 
         /** a sample was loaded (or baked) into the buffer: the sample looper takes it and plays it, looping,
@@ -1835,6 +1870,7 @@ namespace daisy
         float sampler_in_[2][kSamplerBlock] = {};   // the input the sample loop records, a block late
         float sampler_win_s_ = 0.f, sampler_win_e_ = 1.f;
         float sampler_speed_ = .75f;
+        bool sampler_page_ = false;
         int16_t* bake_mem_ = nullptr;
         size_t bake_cap_ = 0;
         volatile size_t bake_len_ = 0;

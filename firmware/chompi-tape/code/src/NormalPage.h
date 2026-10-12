@@ -1111,6 +1111,8 @@ namespace chompi
             }
 
             switch_state = state; 
+            if(fx_)
+                fx_->SetSamplerPage(OnSamplerPage());
         }
 
         inline void SetCovered(bool covered) { covered_ = covered; }
