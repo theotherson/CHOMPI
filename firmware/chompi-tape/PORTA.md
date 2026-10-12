@@ -25,7 +25,8 @@ Items marked **(open)** are undecided.
 ```
 
 - A sample is one sound; a loop is samples played (freely or sequenced) and recorded onto a track, or a bounce.
-- Chromatic and kit playing live on the 4TRACK page only; the sampler page captures and edits.
+- Chromatic and kit playing live on the 4TRACK page only; the sampler page captures **and edits**: load a
+  sample (or record one), trim it, add FX (warble, drive…), save the result to a new slot.
 - Sampler loop key (**built**, a one-layer looper on the 10 s sample buffer): empty: hold to record while
   held, tap to arm (knob 1's threshold; with it off, records latched); recording: tap to stop and keep
   playing; with a sample: tap to overdub (latched) or hold to overdub while held; armed: tap to cancel. Play:
@@ -143,7 +144,7 @@ yellow overdub, dim white holding a sample.
 
 | Key | Function |
 |---|---|
-| low C# / D# | Today: TAPE's banks (momentary). **(open)** In the model, playing banks and kits is the 4TRACK page's; the sampler page will pick kit capture here |
+| low C# / D# | **Load a sample to edit:** the bank on the white keys (again to scroll banks); tap a slot to load it into the sample buffer (cut at 10 s); CHOMPI + slot auditions it. Kit capture comes here later |
 | low F#, low G# | Free |
 | low A# | Input type: cycles mic → aux → resample. Key LED colour shows which |
 | mid C#, mid D#, upper F#/G#/A# | As on the loop page **(open)** |
