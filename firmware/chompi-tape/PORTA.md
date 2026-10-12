@@ -96,7 +96,7 @@ Both pages share TAPE 2.0's knobs, except:
 
 | Knob | Sampler page | Loop page |
 |---|---|---|
-| 1 | Recording threshold (off fully left; LED white by level, red while the input is above it) | Sample pitch (TAPE) |
+| 1 | Recording threshold (off fully left; LED white by level, red while the input is above it) | Pages: sample pitch, gain (TAPE), **overdub level** (red keeps nothing, green keeps it all) |
 | 2 / 3 | Sample start / end (TAPE) | **Recorded loop's start / end**, all layers together |
 | 4 | FX (TAPE) | FX (TAPE) |
 | Wheel, volume | TAPE | TAPE |
@@ -114,7 +114,6 @@ The threshold is shared: the loop page's armed recording uses the value set on t
 While armed the loop key blinks red. A sample recording keeps a ~6 ms pre-roll so the attack isn't lost
 (from MIXTAPE); the looper doesn't yet. The first ~100 ms after arming is ignored (key noise).
 
-**(open)** CHOMPI + loop/play was TAPE's overdub level; it has no control in PORTA yet.
 **(open)** Listening to one layer at a time (solo or mute).
 
 ---
@@ -161,6 +160,8 @@ Get recording, layers and printing working first, then slicing.
 - **Bounce** (Portastudio style): in the layer view, hold CHOMPI and hold a layer key for 1 s. Every other
   recorded layer is mixed into it and emptied, ready to record again. What plays doesn't change; it takes
   about a third of a second, and the key flashes meanwhile. This replaces adding more layers.
+- **Later:** selective bounce: hold the destination key and tap the layers to merge into it (1+2 into 2,
+  3+4 into 4, …); holding without tapping bounces everything, as now.
 - Not done yet: saving and loading the looper still covers layer 1 only; no projects yet.
 
 ---
