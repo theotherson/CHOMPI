@@ -17,7 +17,7 @@ Items marked **(open)** are undecided.
 
 ```
  SAMPLER page                 4TRACK page (was "loop page")
- capture sounds        ──▶    PLAY them: C# chromatic, D# kits, F# loops, G# sequencer/arp
+ capture sounds        ──▶    PLAY them: C# chromatic, D# kits, F# loops, A# sequencer/arp, G# tracks/projects
   · a sample (≤ 10 s)         RECORD what's played onto a track = resampling, how loops are made
   · a kit (15 hits,           BOUNCE tracks together
     ≤ 1.5 s each)             SAVE a track as a loop → loop bank
@@ -99,32 +99,30 @@ is open, the knobs, play and loop work as normal unless CHOMPI is held.
 
 | Key | Function |
 |---|---|
-| low C# | Chromatic banks: 15 samples, each played chromatically (TAPE's JAMMI) |
-| low D# | 15 one-shots at fixed pitch (TAPE's CUBBI) |
-| low F# | **(open)** |
-| low G# | Sequencer/arp. One-shots: tap toggles it on/off. CHOMPI + hold: patterns. CHOMPI + tap: latch (see Arp gestures) |
+| low C# / D# | Today: TAPE's banks (momentary). **(open)** In the model, playing banks and kits is the 4TRACK page's; the sampler page will pick kit capture here |
+| low F#, low G# | Free |
 | low A# | Input type: cycles mic → aux → resample. Key LED colour shows which |
 | mid C#, mid D#, upper F#/G#/A# | As on the loop page **(open)** |
 
-### Arp gestures on G#
+### Sequencer / arpeggiator (A#, 4TRACK page, planned)
 
-"Shift" is the CHOMPI key (MIXTAPE's docs call it SHIFT). In chromatic mode the black keys are notes,
-so there the arp needs CHOMPI held.
+From TEMPO's sequencer. "Shift" is the CHOMPI key. On the 4TRACK page the black keys show their menu
+functions only with CHOMPI held, so:
 
-| | Loop page, and one-shots on the sampler page | Sampler page, chromatic |
-|---|---|---|
-| Sequencer on/off | tap G# (sequences what's on the white keys: the layer, or the one-shots) | pick a pattern (key 1 = off) |
-| Patterns on the white keys, key 1 = off | CHOMPI + hold G# | CHOMPI + hold G# |
-| Latch | CHOMPI + tap G# | CHOMPI + tap G# |
+| Gesture | Does |
+|---|---|
+| CHOMPI + tap A# | latch: holds the notes when nothing plays, the arp when it does |
+| CHOMPI + hold A# | patterns on the white keys (below); picking one turns it on, key 1 turns it off |
+| tap A# in a latched picker | on / off |
+| middle D# | sequence or arpeggio |
 
-- Patterns and latch use the same gestures everywhere. The plain G# tap works wherever G# isn't a note:
-  the loop page and one-shot mode.
-- Latch: notes when nothing plays, the arp when it does.
-- Pattern keys (white keys while the patterns show):
+**(open)** Exact on/off gesture, now that A# isn't a note only inside the CHOMPI menu.
 
-  | Key | 1 | 2 | 3 | 4 | 5 | 6 | 7–11 |
-  |---|---|---|---|---|---|---|---|
-  | | off | sequence (order pressed) | up | down | ping-pong | random | TEMPO's rest patterns |
+Pattern keys (white keys while the patterns show):
+
+| Key | 1 | 2 | 3 | 4 | 5 | 6 | 7–11 |
+|---|---|---|---|---|---|---|---|
+| | off | sequence (order pressed) | up | down | ping-pong | random | TEMPO's rest patterns |
 
 ### Knobs
 
