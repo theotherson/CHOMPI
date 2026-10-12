@@ -26,6 +26,7 @@ static constexpr float kHpGain = .2f;
 static constexpr float kMicGain = 5.f;
 static constexpr float kLineInGain = 3.f;
 static constexpr size_t kMaxPoly = 7;
+static_assert(kMaxPoly == daisy::kNumSampleFifos, "a read-ahead buffer per voice, see SampleFifo");
 
 namespace daisy
 {

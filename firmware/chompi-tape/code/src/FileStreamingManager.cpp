@@ -5,6 +5,16 @@
 
 using namespace daisy;
 
+// the voices' read-ahead, see SampleFifo; as FIFO<T, n> does, each holds one more than its capacity
+static int16_t DSY_SDRAM_BSS sample_fifo_mem[kNumSampleFifos][kMaxFileStreamingSamps + 1];
+
+int16_t* SampleFifo::NextBuffer()
+{
+    static size_t next = 0;
+    const size_t i = next < kNumSampleFifos ? next++ : kNumSampleFifos - 1; // never more than the voices
+    return sample_fifo_mem[i];
+}
+
 FileStreamingManager::Status FileStreamingManager::ProcessRequests()
 {
     FRESULT fres;

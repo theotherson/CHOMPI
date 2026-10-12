@@ -11,7 +11,19 @@ namespace daisy
 
     //static constexpr size_t kMaxFileStreamingSamps = 32768;
     static constexpr size_t kMaxFileStreamingSamps = 8192;
-    using SampleFifo = FIFO<int16_t, kMaxFileStreamingSamps>;
+
+    /** A voice's read-ahead from the SD card. PORTA: its storage is in SDRAM, not in the voice. The SD DMA
+     *  lands in the manager's workspace and the CPU copies from there, so it needn't be DMA-reachable, and
+     *  seven of these (115 KB) were most of the AXI SRAM's data. Each one made takes the next buffer. */
+    static constexpr size_t kNumSampleFifos = 7; // one per voice: kMaxPoly
+    class SampleFifo : public FIFOBase<int16_t>
+    {
+      public:
+        SampleFifo() : FIFOBase<int16_t>(NextBuffer(), kMaxFileStreamingSamps + 1) {}
+
+      private:
+        static int16_t* NextBuffer();
+    };
 
     /** @brief structure containing info necessary for deferred fileIO operations */
     struct FileRequest

@@ -1019,7 +1019,7 @@ namespace daisy
         inline size_t GetSize() { return ram_buff.GetSize(); }
 
         FileStreamingManager *manager_;
-        FIFO<int16_t, kMaxFileStreamingSamps> read_samps;
+        SampleFifo read_samps; // storage in SDRAM, see SampleFifo
 
         FIL fptr_read;
         char fname_rx[32];
