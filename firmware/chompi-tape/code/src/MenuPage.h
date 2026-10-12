@@ -88,6 +88,15 @@ namespace chompi
                 last_blink = now;
             }
 
+            if(loading_ && !copier_->IsCopying()) // a sample loaded into the buffer: the sampler takes it
+            {
+                fx_->SamplerAdoptBuffer();
+                for(int page = 0; page < 2; page++) // a new sample starts from the default pitch, start, end
+                    for(int knob = 0; knob < 3; knob++)
+                        enc_values[page][knob] = enc_defaults[page][knob];
+                loading_ = false;
+            }
+
             if(LatchedOnly())
             {
                 DrawKeys(now);
@@ -875,8 +884,9 @@ namespace chompi
             case static_cast<uint16_t>(Hardware::SwId::KEY_16): // Jammi mode bank, fall through
             case static_cast<uint16_t>(Hardware::SwId::KEY_17): // Cubbi mode bank
             {                
-                // PORTA loop page: the sample picker latches open; pick a sample on the white keys to close it
-                if(rising && OnLoopPage())
+                // PORTA: the sample picker latches open; pick a sample on the white keys to close it (on the
+                // sampler page, picking loads it into the sample buffer to edit)
+                if(rising)
                     SetLatch(Latch::SAMPLES);
 
                 if(rising && !no_sd_card_)
@@ -1064,10 +1074,11 @@ namespace chompi
                     break;
                 }
 
-                if(latch_ == Latch::SAMPLES && OnLoopPage() && preset_mode == PresetMode::NONE)
+                if(latch_ == Latch::SAMPLES && preset_mode == PresetMode::NONE)
                 {
                     // the sample picker: a key picks the bank's sample (or, for one-shots, the kit) and
-                    // closes it, back to the normal keyboard
+                    // closes it, back to the normal keyboard. On the sampler page it loads that sample into
+                    // the sample buffer (cut at 10 s) to edit, and goes back to the sampler.
                     const size_t slot = KeyToSlot(buttonID);
 
                     // CHOMPI + a slot auditions it, the picker stays open. One-shots play through the normal
@@ -1090,7 +1101,12 @@ namespace chompi
                         break;
                     }
 
-                    if(rising && slot != kSlotNone && !no_sd_card_)
+                    if(rising && slot != kSlotNone && !no_sd_card_ && !OnLoopPage())
+                    {
+                        if(fx_->GetFileExists(slot - 1) && !copier_->IsCopying())
+                            LoadIntoSampler(slot);
+                    }
+                    else if(rising && slot != kSlotNone && !no_sd_card_)
                     {
                         if(fx_->GetVoiceMode() == VoiceMode::CUBBI)
                             SetLatch(Latch::NONE);
@@ -1293,6 +1309,22 @@ namespace chompi
             switch_state = state;
         }
 
+        /** PORTA sampler page: load a slot of the current bank into the sample buffer, TAPE's copy into
+         *  slot 15 (RAM). The sample looper and the keys take it once the copy is done (see Draw). */
+        void LoadIntoSampler(size_t slot)
+        {
+            fx_->SamplerCancelWait();
+            fx_->SamplerStopTake();
+            fx_->SamplerPause();
+            fx_->StopAllVoices();
+            FileCopier::CopyRequest req(slot, fx_->GetBank(), fx_->GetVoiceMode(), 15, fx_->GetBank(),
+                                        VoiceMode::JAMMI, false, FileCopier::CopyRequest::RamDir::TO,
+                                        FileCopier::CopyRequest::RamDir::NONE);
+            copier_->req_fifo.PushBack(req);
+            loading_ = true;
+            SetLatch(Latch::SAMPLER);
+        }
+
         // PORTA sampler page: the menu stays open there without CHOMPI, its black keys always functions,
         // its white keys the sample's (they fall through to the normal page)
         inline void OpenForSampler() { open_unshifted_ = true; }
@@ -1429,7 +1461,8 @@ namespace chompi
         bool chompi_key_pressed = false;
         bool opened_on_loop_page_ = false; // the toggle when the menu opened, the menu closes if it moves
         Latch latch_ = Latch::NONE;
-        bool open_unshifted_ = false; // opened for the sampler page, not by CHOMPI        // loop page: a picker latched open by C#/D# or G#
+        bool open_unshifted_ = false; // opened for the sampler page, not by CHOMPI
+        bool loading_ = false;        // a sample is being loaded into the sample buffer        // loop page: a picker latched open by C#/D# or G#
         // layer picker: the layer pressed with CHOMPI (select / audition)
         int held_layer_ = -1;
         uint32_t held_since_ = 0;

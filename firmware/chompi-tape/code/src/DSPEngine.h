@@ -1417,6 +1417,14 @@ namespace daisy
         inline bool SamplerPlaying() { return sampler_.IsPlaying(); }
         inline float SamplerPosition() { return sampler_.GetPosition(); }
 
+        /** a sample was loaded into the buffer: the sample looper and the keys take it */
+        void SamplerAdoptBuffer()
+        {
+            sampler_wait_ = 0.f;
+            sampler_.OpenFile();
+            UseSamplerSample();
+        }
+
         /** a first take just finished: the keys play it, as TAPE's StopRecording set them up */
         void UseSamplerSample()
         {
