@@ -50,7 +50,7 @@ as with TAPE's shift menu. White keys are keys 1–15.
 
 | Key | Function |
 |---|---|
-| low C# | Current project: shows its layers on keys 1–4 (green = recording into, white = recorded, dim = empty, dim red = being cleared); a key picks the layer **(draft: built this way, confirm)** |
+| low C# | **Layer view** on/off (see below) |
 | low D# | Project slots 1–15 on the white keys |
 | low F# | Slice mode for the active layer(s). Hold: slice the loop across the white keys (see Slicing) |
 | low G# | Tap: sequencer on/off, sequencing the layer with the white keys. CHOMPI + hold: patterns. CHOMPI + tap: latch (see Arp gestures) |
@@ -114,7 +114,7 @@ The threshold is shared: the loop page's armed recording uses the value set on t
 While armed the loop key blinks red. A sample recording keeps a ~6 ms pre-roll so the attack isn't lost
 (from MIXTAPE); the looper doesn't yet. The first ~100 ms after arming is ignored (key noise).
 
-**(open)** Listening to one layer at a time (solo or mute).
+
 
 ---
 
@@ -147,6 +147,23 @@ Get recording, layers and printing working first, then slicing.
 
 ---
 
+### Layer view
+
+CHOMPI + C# on the loop page turns it on, and it **stays on** (the CHOMPI menu latched open):
+- black keys keep their menu functions; C# again turns the view off (so does leaving the loop page);
+- white keys 1–4 are the layers, 5–15 do nothing;
+- knobs, their clicks, play and loop work as normal unless CHOMPI is held.
+
+| Gesture | Does |
+|---|---|
+| tap a layer key | record into that layer |
+| hold a layer key 2 s | solo it; hold the soloed layer 2 s to bring all back (as x0x) |
+| CHOMPI + tap a layer key | mute / unmute it (blinks slowly while muted) |
+| CHOMPI + hold a layer key 1 s | bounce into it |
+
+LEDs: green = recording into, white = recorded, dim = empty, dim red = being cleared, flashing white = being
+bounced into. Mutes aren't saved and reset with the looper.
+
 ### How the four layers work (draft)
 
 - The first recording, on the selected layer, sets the loop length; that layer is the master.
@@ -158,8 +175,9 @@ Get recording, layers and printing working first, then slicing.
 - Each layer takes unlimited overdubs, merged into that layer. Four is the number of *separate* layers
   (memory: 4 × 55 s stereo).
 - **Bounce** (Portastudio style): in the layer view, hold CHOMPI and hold a layer key for 1 s. Every other
-  recorded layer is mixed into it and emptied, ready to record again. What plays doesn't change; it takes
-  about a third of a second, and the key flashes meanwhile. This replaces adding more layers.
+  recorded, *unmuted* layer is mixed into it and emptied, ready to record again; muted layers stay, so muting
+  picks what's bounced. What plays doesn't change; it takes about a third of a second, and the key flashes
+  meanwhile. This replaces adding more layers.
 - **Later:** selective bounce: hold the destination key and tap the layers to merge into it (1+2 into 2,
   3+4 into 4, …); holding without tapping bounces everything, as now.
 - Not done yet: saving and loading the looper still covers layer 1 only; no projects yet.
