@@ -527,8 +527,24 @@ namespace chompi
 
             /** PTH leds */
             float r, g, b;
-            // play key
-            if(fx_->GetLooperIsEmpty() && !fx_->IsLooperRecordArmed())
+            SamplerTick(now);
+
+            // play key: the sample looper on the sampler page, the 4TRACK looper on the loop page
+            if(OnSamplerPage())
+            {
+                const float position = 1.f - fx_->SamplerPosition();
+                if(fx_->SamplerEmpty())
+                    r = g = b = 0.f;
+                else if(fx_->SamplerPlaying())
+                {
+                    r = teal[0] * position;
+                    g = teal[1] * position;
+                    b = teal[2] * position;
+                }
+                else
+                    r = g = b = .3f * position;
+            }
+            else if(fx_->GetLooperIsEmpty() && !fx_->IsLooperRecordArmed())
             {
                 r = g = b = 0.f;
             }
@@ -557,12 +573,6 @@ namespace chompi
                 b = position;
             }
 
-            if(!switch_state)
-            {
-                r *= kRecDim;
-                g *= kRecDim;
-                b *= kRecDim;
-            }
             SetPthLedFloat(led_map[33], r, g, b);
 
             if(fx_->GetLooperIsEmpty())
@@ -741,7 +751,10 @@ namespace chompi
             case static_cast<uint16_t>(Hardware::SwId::KEY_27): // play
             {
                 last_arm_blink = System::GetNow();
-                fx_->LooperPlayButton(rising);    
+                if(OnSamplerPage())
+                    SamplerPlayKey(rising);
+                else
+                    fx_->LooperPlayButton(rising);    
                 hw_->SendCC(midi_channel, 26, rising ? 127 : 0);
                 break;
             }
@@ -749,7 +762,7 @@ namespace chompi
             {
                 last_arm_blink = System::GetNow();
                 if(OnSamplerPage())
-                    RecordButton(rising);
+                    SamplerLoopKey(rising);
                 else if(fx_->IsLooperWaiting())
                 {
                     if(rising)
@@ -792,8 +805,10 @@ namespace chompi
                             OpenCubbiSlot(slot);
                         }
 
+                        // PORTA sampler page: every key plays the sample at its own pitch, as a one-shot
+                        const float transpose = OnSamplerPage() ? 0.f : float(key_map[buttonID] - 60);
                         fx_->request_fifo.PushBack(KeyRequest(KeyRequest::Type::START, 
-                            key_map[buttonID] - 60, buttonID, 127.f));
+                            transpose, buttonID, 127.f));
                     }
 
                     if(fx_->GetLooperRecordArm())
@@ -1036,14 +1051,14 @@ namespace chompi
                 g = record_blink ? pink[1] : 0.f;
                 b = record_blink ? pink[2] : 0.f;
             }
-            else if(fx_->IsRecordWaiting()) // waiting for the threshold: red, blinking
+            else if(fx_->SamplerWaiting()) // waiting for the threshold: red, blinking
             {
                 const bool on = (now / 150) % 2;
                 r = on ? red[0] : 0.f;
                 g = on ? red[1] : 0.f;
                 b = on ? red[2] : 0.f;
             }
-            else if(fx_->Recording())
+            else if(fx_->SamplerRecording())
             {
                 r = red[0];
                 g = red[1];
@@ -1060,9 +1075,11 @@ namespace chompi
 
         void SetSwitchState(bool state)
         {
-            if(state && !switch_state && fx_->Recording() && !copier_->IsCopying())
+            if(state && !switch_state && fx_) // to the 4TRACK page: the sample stops where it is
             {
-                StopVoiceRecording();
+                fx_->SamplerCancelWait();
+                fx_->SamplerStopTake();
+                fx_->SamplerPause();
             }
 
             switch_state = state; 
@@ -1080,36 +1097,88 @@ namespace chompi
             return t * t * t;
         }
 
-        // the loop key on the sampler page: record into the buffer, held or latched (TAPE's CHOMPI key did this)
-        void RecordButton(bool rising)
+        /** PORTA sampler page, the loop key (the sample looper):
+         *  empty: hold to record while held, tap to arm (waits for knob 1's threshold; with it off, records,
+         *  latched); recording: tap to stop and keep playing; holding a sample: tap to overdub, latched,
+         *  or hold to overdub while held. Armed: tap to cancel. */
+        void SamplerLoopKey(bool rising)
         {
-            const bool latch = fx_->GetRecordLatch() || fx_->IsRecordArmed();
-            const bool rec   = fx_->Recording();
-
-            if(rising && !rec)
+            const uint32_t now = System::GetNow();
+            if(rising)
             {
-                fx_->StartNewRecording(0);
-                last_record_blink = System::GetNow();
-                record_blink      = false;
-            }
-            else if(!rising && !latch && rec)
-                StopVoiceRecording();
-            else if(rising && rec && latch)
-                StopVoiceRecording();
-        }
-
-        void StopVoiceRecording()
-        {
-            if(!fx_->StopRecording()) // stopped before the threshold, the old sample stays
+                loop_down_ = true;
+                loop_press_ = now;
+                if(fx_->SamplerWaiting())
+                {
+                    fx_->SamplerCancelWait();
+                    loop_action_ = LoopAction::DONE;
+                }
+                else if(fx_->SamplerRecording())
+                {
+                    fx_->SamplerStopTake();
+                    loop_action_ = LoopAction::DONE;
+                }
+                else if(fx_->SamplerEmpty() && Threshold() > 0.f)
+                {
+                    fx_->SamplerArm(Threshold());
+                    loop_action_ = LoopAction::STARTED;
+                }
+                else
+                {
+                    fx_->SamplerStartTake();
+                    loop_action_ = LoopAction::STARTED;
+                }
                 return;
+            }
 
-            enc_values[0][0] = enc_defaults[0][0];
-            enc_values[0][1] = enc_defaults[0][1];
-            enc_values[0][2] = enc_defaults[0][2];
-            enc_values[1][0] = enc_defaults[1][0];
-            enc_values[1][1] = enc_defaults[1][1];
-            enc_values[1][2] = enc_defaults[1][2];
+            loop_down_ = false;
+            if(!play_down_)
+                deleted_ = false;
+            if(loop_action_ == LoopAction::STARTED && now - loop_press_ >= kLoopHoldMs) // held: it ends here
+            {
+                if(fx_->SamplerWaiting())
+                    fx_->SamplerCancelWait();
+                else
+                    fx_->SamplerStopTake();
+            }
+            loop_action_ = LoopAction::DONE;
         }
+
+        // the play key: play / pause the sample; held with loop 2 s, deletes it (as TAPE's looper)
+        void SamplerPlayKey(bool rising)
+        {
+            play_down_ = rising;
+            if(rising)
+                play_press_ = System::GetNow();
+            else if(!deleted_ && System::GetNow() - play_press_ < kLoopHoldMs && !loop_down_)
+                fx_->SamplerTogglePlay();
+            if(!rising && !loop_down_)
+                deleted_ = false;
+        }
+
+        // every frame: play + loop held 2 s delete the sample; a first take finished goes to the keys
+        void SamplerTick(uint32_t now)
+        {
+            if(OnSamplerPage() && play_down_ && loop_down_ && !deleted_
+               && now - (play_press_ > loop_press_ ? play_press_ : loop_press_) >= kDeleteHoldMs)
+            {
+                fx_->SamplerReset();
+                deleted_ = true;
+                loop_action_ = LoopAction::DONE;
+            }
+
+            const bool first = fx_->SamplerFirstTake();
+            if(sampler_first_ && !first && !fx_->SamplerEmpty())
+            {
+                fx_->UseSamplerSample();
+                // a new sample starts from the default pitch, start, end and envelope
+                for(int page = 0; page < 2; page++)
+                    for(int knob = 0; knob < 3; knob++)
+                        enc_values[page][knob] = enc_defaults[page][knob];
+            }
+            sampler_first_ = first;
+        }
+
 
         inline void SetInitIgnore(bool ignore) { init_ignore = ignore; }
 
@@ -1129,6 +1198,14 @@ namespace chompi
         bool switch_state = false;
         bool chompi_key_pressed = false;
         float loop_start_ = 0.f, loop_end_ = 1.f; // loop page: the window of the recorded loop
+
+        // sampler page keys
+        enum class LoopAction { DONE, STARTED };
+        LoopAction loop_action_ = LoopAction::DONE;
+        bool loop_down_ = false, play_down_ = false, deleted_ = false, sampler_first_ = true;
+        uint32_t loop_press_ = 0, play_press_ = 0;
+        static constexpr uint32_t kLoopHoldMs   = 300;  // longer than this is a hold
+        static constexpr uint32_t kDeleteHoldMs = 2000;
         bool covered_ = false;                    // the menu is open above, drawing on top
         uint8_t* knob_page;
         bool quantized_pitch_;

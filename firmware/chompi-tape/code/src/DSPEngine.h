@@ -216,6 +216,9 @@ namespace daisy
             /* looper */
             looper.Init(samplerate, loop_buff, tape_slew);
 
+            /* PORTA sampler: the same looper, one layer, on the sample buffer the keys play */
+            sampler_.Init(samplerate, chompi_buff, tape_slew, 1);
+
             /** Final output compressors */
             lim_hp_l_.Init();
             lim_hp_r_.Init();
@@ -535,7 +538,22 @@ namespace daisy
             }
 
 
-            /** voice write */
+            /** PORTA sampler: waiting for the threshold, then the sample looper records the input */
+            if(sampler_wait_ > 0.f)
+            {
+                if(sampler_wait_age_ < kLooperIgnoreSamples)
+                    sampler_wait_age_ += size;
+                else if(GetVUSample(VUTarget::VU_INPUT) >= sampler_wait_)
+                {
+                    sampler_wait_ = 0.f;
+                    sampler_.StartTake();
+                }
+            }
+            sampler_.CheckRecordReady();
+            sampler_.CheckReset(); // clears its reset flag once the delete has faded out
+            sampler_.Process(monitor[0], monitor[1], out[0], out[1], size);
+
+            /** voice write (TAPE's recorder; PORTA's sampler page uses the sample looper above) */
             if (record)
             {
                 // the input level meter crossing the threshold starts a waiting recording (from MIXTAPE)
@@ -1333,7 +1351,11 @@ namespace daisy
         inline void SetLooperLayer(size_t layer) { looper.SetActiveLayer(layer); }
         inline bool IsLooperLayerFilled(size_t layer) { return looper.LayerFilled(layer); }
         inline bool IsLooperLayerReady(size_t layer) { return looper.LayerReady(layer); }
-        inline void ServiceLooper() { looper.ServiceClears(); } // SD timer
+        inline void ServiceLooper() // SD timer
+        {
+            looper.ServiceClears();
+            sampler_.ServiceClears();
+        }
         inline void SetLooperWindow(float start, float end) { looper.SetWindow(start, end); }
         inline bool BounceLooperInto(size_t layer, uint8_t sources, bool merge)
         {
@@ -1359,6 +1381,52 @@ namespace daisy
             looper_wait_ = threshold;
         }
         inline bool IsLooperWaiting() const { return looper_wait_ > 0.f; }
+
+        /** PORTA sampler page: the sample looper (record, play, overdub the 10 s sample the keys play) */
+        inline void SamplerStartTake() { sampler_.StartTake(); }
+        inline void SamplerStopTake() { sampler_.StopTake(); }
+        inline void SamplerTogglePlay() { sampler_.TogglePlaying(); }
+        inline void SamplerPause()
+        {
+            if(sampler_.IsPlaying())
+                sampler_.TogglePlaying();
+        }
+        void SamplerReset()
+        {
+            sampler_wait_ = 0.f;
+            sampler_.Reset();
+        }
+        // threshold 0 starts now
+        void SamplerArm(float threshold)
+        {
+            if(threshold <= 0.f)
+            {
+                sampler_.StartTake();
+                return;
+            }
+            sampler_wait_age_ = 0;
+            sampler_wait_ = threshold;
+        }
+        inline void SamplerCancelWait() { sampler_wait_ = 0.f; }
+        inline bool SamplerWaiting() const { return sampler_wait_ > 0.f; }
+        inline bool SamplerRecording() { return sampler_.IsRecording(); }
+        inline bool SamplerFirstTake() { return sampler_.IsFirstRecording(); }
+        inline bool SamplerEmpty() { return sampler_.GetIsEmpty(); }
+        inline bool SamplerPlaying() { return sampler_.IsPlaying(); }
+        inline float SamplerPosition() { return sampler_.GetPosition(); }
+
+        /** a first take just finished: the keys play it, as TAPE's StopRecording set them up */
+        void UseSamplerSample()
+        {
+            for(size_t i = 0; i < kMaxPoly; i++)
+            {
+                chompi_voice[i].RestoreDefaults();
+                chompi_voice[i].StopPlaying();
+                chompi_voice[i].CloseFile();
+            }
+            SetVoiceMode(VoiceMode::JAMMI);
+            SetVoiceSlot(15, false);
+        }
         inline void CancelLooperWait() { looper_wait_ = 0.f; }
 
         inline int GetBank() { return bank[int(voice_mode)];}
@@ -1615,6 +1683,9 @@ namespace daisy
 
         /** the looper */
         LooperEngine looper;
+        LooperEngine sampler_; // PORTA: the sampler page's sample looper, one layer
+        volatile float sampler_wait_ = 0.f;
+        size_t sampler_wait_age_ = 0;
 
         float encoder_chunk = 0.f; // chunk up the quantized pitch controls
         float looper_encoder_chunk = 0.f;

@@ -1264,15 +1264,13 @@ namespace chompi
                 else
                     fx_->ArmLooper(threshold);
             }
-            else if(!fx_->Recording())
-                fx_->StartNewRecording(0, threshold, true);
-            else if(fx_->StopRecording()) // stopping a waiting recording keeps the old sample
-            {
-                // a new sample starts from the default pitch, start, end and envelope, as NormalPage does
-                for(int page = 0; page < 2; page++)
-                    for(int knob = 0; knob < 3; knob++)
-                        enc_values[page][knob] = enc_defaults[page][knob];
-            }
+            // sampler page: arm the sample looper; again cancels the arm, or stops a take
+            else if(fx_->SamplerWaiting())
+                fx_->SamplerCancelWait();
+            else if(fx_->SamplerRecording())
+                fx_->SamplerStopTake();
+            else
+                fx_->SamplerArm(threshold);
         }
 
         // loop page: G# bright while the layer picker is open, and then keys 1-4 are the layers

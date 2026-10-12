@@ -22,9 +22,11 @@ namespace daisy
         LooperEngine() {}
         ~LooperEngine() {}
 
-        void Init(float sr, RamBufferMemory* layer_buffs, bool tape_slew)
+        /** num_layers buffers in layer_buffs: four for the 4TRACK page, one for the sampler's sample */
+        void Init(float sr, RamBufferMemory* layer_buffs, bool tape_slew, size_t num_layers = kNumLayers)
         {
-            for(size_t i = 0; i < kNumLayers; i++)
+            num_layers_ = num_layers < kNumLayers ? num_layers : kNumLayers;
+            for(size_t i = 0; i < num_layers_; i++)
             {
                 mem_[i] = &layer_buffs[i];
                 layers_[i].Init(sr, mem_[i], tape_slew);
@@ -54,7 +56,10 @@ namespace daisy
             fx_env_target_ = 0.f;
         }
 
-        void Process(float* out_l, float* out_r, size_t size)
+        void Process(float* out_l, float* out_r, size_t size) { Process(out_l, out_r, out_l, out_r, size); }
+
+        // records in, plays into out (which may be in: each sample is read before it's added to)
+        void Process(const float* in_l, const float* in_r, float* out_l, float* out_r, size_t size)
         {
             if(IsFirstRecording() && !IsRecording() && !Master().IsResetting())
                 return;
@@ -66,18 +71,18 @@ namespace daisy
             {
                 daisysp::fonepole(fx_env_, fx_env_target_, .001f);
 
-                const int16_t in_l = f2s16(out_l[i] * fx_env_);
-                const int16_t in_r = f2s16(out_r[i] * fx_env_);
+                const int16_t rec_l = f2s16(in_l[i] * fx_env_);
+                const int16_t rec_r = f2s16(in_r[i] * fx_env_);
 
                 if(!first_record || Master().IsResetting())
                 {
                     float sum_l = 0.f, sum_r = 0.f;
-                    for(size_t l = 0; l < kNumLayers; l++)
+                    for(size_t l = 0; l < num_layers_; l++)
                     {
                         const bool rec_here = record && l == active_;
                         int16_t aol = 0;
                         int16_t aor = 0;
-                        layers_[l].PopStereoSamps(rec_here ? in_l : 0, rec_here ? in_r : 0, &aol, &aor,
+                        layers_[l].PopStereoSamps(rec_here ? rec_l : 0, rec_here ? rec_r : 0, &aol, &aor,
                                                   rec_here, playing);
                         // a muted layer fades out over a few ms rather than clicking; auditioning one layer
                         // (CHOMPI + its key) plays only that one, mutes or not
@@ -97,7 +102,7 @@ namespace daisy
                 }
                 else if(!reset)
                 {
-                    Master().PushStereoSamps(in_l, in_r);
+                    Master().PushStereoSamps(rec_l, rec_r);
                 }
 
                 if(first_record && Master().WriteFullLength())
@@ -120,7 +125,7 @@ namespace daisy
                 BounceChunk(kChunk);
                 return;
             }
-            for(size_t l = 0; l < kNumLayers; l++)
+            for(size_t l = 0; l < num_layers_; l++)
             {
                 const size_t len = dirty_len_[l];
                 if(!len)
@@ -144,10 +149,10 @@ namespace daisy
          *  dest comes out unmuted, so the print is heard. Not while recording. */
         bool BounceInto(size_t dest, uint8_t sources, bool merge)
         {
-            if(dest >= kNumLayers || first_record || record || record_target || bouncing_ || dirty_len_[dest])
+            if(dest >= num_layers_ || first_record || record || record_target || bouncing_ || dirty_len_[dest])
                 return false;
             sources &= ~(1 << dest);
-            for(size_t l = 0; l < kNumLayers; l++)
+            for(size_t l = 0; l < num_layers_; l++)
                 if(!filled_[l] || dirty_len_[l])
                     sources &= ~(1 << l);
             if(!sources)
@@ -167,20 +172,20 @@ namespace daisy
         /** Mute, as on x0x: a muted layer keeps playing silently, in step */
         void ToggleMute(size_t l)
         {
-            if(l < kNumLayers)
+            if(l < num_layers_)
                 muted_[l] = !muted_[l];
         }
-        inline bool Muted(size_t l) const { return l < kNumLayers && muted_[l]; }
+        inline bool Muted(size_t l) const { return l < num_layers_ && muted_[l]; }
 
         /** hear only layer l while it's auditioned, -1 for none. A stopped looper plays for the audition,
          *  from the top, and stops again after, like auditioning a sample. */
         void SetAudition(int l)
         {
-            if(l >= int(kNumLayers))
+            if(l >= int(num_layers_))
                 l = -1;
             if(l >= 0 && !first_record && !record && !playing && !play_target)
             {
-                for(auto& layer : layers_)
+                for(auto& layer : Layers())
                     layer.JumpToStart();
                 playing = true;
                 audition_played_ = true;
@@ -197,12 +202,24 @@ namespace daisy
 
         inline size_t BounceDest() const { return bounce_dest_; }
 
+        /** PORTA sampler: start a take now (the first, or an overdub) / stop it and keep playing */
+        void StartTake()
+        {
+            if(!record && !record_target && !bouncing_)
+                ToggleRecord();
+        }
+        void StopTake()
+        {
+            if(record || record_target)
+                ToggleRecord(true);
+        }
+
         inline bool IsPlaying() { return playing && !first_record; }
         inline bool IsFirstRecording() { return first_record; }
 
         void IncrementDubGain(float gain)
         {
-            for(auto& layer : layers_)
+            for(auto& layer : Layers())
                 layer.IncrementDubGain(gain, first_record && !record);
         }
         inline float GetDubGain() { return Master().GetDubGain(); }
@@ -234,7 +251,7 @@ namespace daisy
             {
                 if(!record_btn && play_btn && !jump_to_start && !IsPlaying())
                 {
-                    for(auto& layer : layers_)
+                    for(auto& layer : Layers())
                         layer.JumpToStart();
                     jump_to_start = true;
                     return false;
@@ -281,17 +298,17 @@ namespace daisy
         // speed, direction and scrub move every layer together, so they stay in step
         inline void SetPitch(float val)
         {
-            for(auto& layer : layers_)
+            for(auto& layer : Layers())
                 layer.SetVarispeed(val);
         }
         inline void SetReverse(bool rev)
         {
-            for(auto& layer : layers_)
+            for(auto& layer : Layers())
                 layer.SetReverse(rev);
         }
         inline void SetScrub(float scrub)
         {
-            for(auto& layer : layers_)
+            for(auto& layer : Layers())
                 layer.SetScrub(scrub);
         }
         inline float GetScrub() { return Master().GetScrub(); }
@@ -422,7 +439,7 @@ namespace daisy
                 else
                     s = e - kMinWindow;
             }
-            for(size_t l = 0; l < kNumLayers; l++)
+            for(size_t l = 0; l < num_layers_; l++)
             {
                 mem_[l]->win_start = s;
                 mem_[l]->win_end   = e;
@@ -444,7 +461,7 @@ namespace daisy
             for(auto& m : muted_)
                 m = false;
             ClearWindow();
-            for(size_t l = 0; l < kNumLayers; l++)
+            for(size_t l = 0; l < num_layers_; l++)
             {
                 layers_[l].Reset();
                 // what's in the layers now is the old loop: it gets cleared in the background
@@ -475,7 +492,7 @@ namespace daisy
             Master().JumpTo(0);
             Master().ForceSetScrub(0.f);
             filled_[0] = true;
-            for(size_t l = 1; l < kNumLayers; l++)
+            for(size_t l = 1; l < num_layers_; l++)
             {
                 dirty_len_[l] = mem_[l]->length > mem_[0]->length ? mem_[l]->length : mem_[0]->length;
                 filled_[l] = false;
@@ -485,14 +502,14 @@ namespace daisy
 
         /** Layers, for the UI */
         inline size_t ActiveLayer() const { return active_; }
-        inline bool LayerFilled(size_t l) const { return l < kNumLayers && filled_[l]; }
-        inline bool LayerReady(size_t l) const { return l < kNumLayers && !dirty_len_[l]; }
+        inline bool LayerFilled(size_t l) const { return l < num_layers_ && filled_[l]; }
+        inline bool LayerReady(size_t l) const { return l < num_layers_ && !dirty_len_[l]; }
 
         /** Pick the layer the loop key records into. An overdub under way moves with it. Not during the
          *  first recording, which is what sets the loop's length. */
         void SetActiveLayer(size_t l)
         {
-            if(l >= kNumLayers || (first_record && record))
+            if(l >= num_layers_ || (first_record && record))
                 return;
             if(!first_record && dirty_len_[l])
                 return;
@@ -504,6 +521,15 @@ namespace daisy
     private:
         inline FileSampler& Master() { return layers_[master_]; }
 
+        // the layers in use, for range-for
+        struct LayerRange
+        {
+            FileSampler *b, *e;
+            FileSampler* begin() const { return b; }
+            FileSampler* end() const { return e; }
+        };
+        inline LayerRange Layers() { return {layers_, layers_ + num_layers_}; }
+
         void BounceChunk(size_t chunk)
         {
             const size_t start = bounce_pos_;
@@ -511,7 +537,7 @@ namespace daisy
             int16_t* const dest = mem_[bounce_dest_]->mem;
             if(!bounce_merge_) // replace: what was on dest goes
                 std::fill(&dest[start], &dest[end], 0);
-            for(size_t l = 0; l < kNumLayers; l++)
+            for(size_t l = 0; l < num_layers_; l++)
             {
                 if(!(bounce_sources_ & (1 << l)))
                     continue;
@@ -532,7 +558,7 @@ namespace daisy
             __disable_irq();
             if(bouncing_)
             {
-                for(size_t l = 0; l < kNumLayers; l++)
+                for(size_t l = 0; l < num_layers_; l++)
                     if(bounce_sources_ & (1 << l))
                         filled_[l] = muted_[l] = false; // empty, ready to record
                 filled_[bounce_dest_] = true;
@@ -543,7 +569,7 @@ namespace daisy
 
         void ClearWindow()
         {
-            for(size_t l = 0; l < kNumLayers; l++)
+            for(size_t l = 0; l < num_layers_; l++)
                 mem_[l]->win_start = mem_[l]->win_end = 0;
         }
 
@@ -552,7 +578,7 @@ namespace daisy
         {
             if(!dirty_len_[active_])
                 return active_;
-            for(size_t l = 0; l < kNumLayers; l++)
+            for(size_t l = 0; l < num_layers_; l++)
                 if(!dirty_len_[l])
                     return l;
             return active_; // all still clearing: CheckRecordReady takes this one over anyway
@@ -561,7 +587,7 @@ namespace daisy
         // the loop's length is now known: every layer takes it, and the master's position
         void FollowMaster()
         {
-            for(size_t l = 0; l < kNumLayers; l++)
+            for(size_t l = 0; l < num_layers_; l++)
             {
                 if(l == master_)
                     continue;
@@ -570,6 +596,7 @@ namespace daisy
             }
         }
 
+        size_t num_layers_ = kNumLayers;
         FileSampler layers_[kNumLayers];
         RamBufferMemory* mem_[kNumLayers];
         bool filled_[kNumLayers];
