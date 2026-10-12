@@ -160,7 +160,8 @@ CHOMPI + G# on the loop page opens it, and it **stays open** (the CHOMPI menu la
 | Gesture | Does |
 |---|---|
 | tap a layer key | turn it on / off (mute); off is nearly dark |
-| CHOMPI + a layer key | hear only that layer while held |
+| CHOMPI + tap a layer key | audition it: only that layer plays (it pulses), until tapped again or the picker closes |
+| CHOMPI + hold a layer key 1 s | bounce the other unmuted layers into it |
 | hold a layer key 2 s | it blinks red and recording into it is armed; on release the picker closes, the loop key blinks, and the next note played starts the take |
 
 LEDs: green = the layer recorded into, white = recorded, dim = empty, dim red = being cleared, blinking red =
@@ -176,8 +177,7 @@ armed, flashing white = being bounced into. Mutes aren't saved and reset with th
   and can't be recorded into.
 - Each layer takes unlimited overdubs, merged into that layer. Four is the number of *separate* layers
   (memory: 4 × 55 s stereo).
-- **Bounce** (Portastudio style) **(open: needs a new gesture; suggested: the copy key, then the destination
-  layer)**. Every other
+- **Bounce** (Portastudio style): in the layer picker, CHOMPI + hold the destination layer 1 s. Every other
   recorded, *unmuted* layer is mixed into it and emptied, ready to record again; muted layers stay, so muting
   picks what's bounced. What plays doesn't change; it takes about a third of a second, and the key flashes
   meanwhile. This replaces adding more layers.
