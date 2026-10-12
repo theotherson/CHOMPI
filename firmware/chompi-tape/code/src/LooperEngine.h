@@ -178,6 +178,7 @@ namespace daisy
 
                 if(IsFirstRecording())
                 {
+                    ClearWindow();
                     master_ = active_;
                     dirty_len_[master_] = 0; // the new recording overwrites it, no need to clear
                     Master().ResetRamBuff();
@@ -308,10 +309,40 @@ namespace daisy
         inline bool GetRecordArm() { return record_arm; }
         inline bool GetIsEmpty() { return !record && first_record; }
 
+        // where the loop is within its window, 0 to 1
         float GetPosition() {
-            float tell = static_cast<float>(Master().GetReadTell());
-            float size = static_cast<float>(Master().GetReadSize());
-            return tell / size;
+            const float start = static_cast<float>(Master().GetLoopStart());
+            const float end   = static_cast<float>(Master().GetLoopEnd());
+            const float tell  = static_cast<float>(Master().GetReadTell());
+            return end > start ? (tell - start) / (end - start) : 0.f;
+        }
+
+        /** PORTA: the part of the recorded loop that plays, as fractions of its length, the same on every
+         *  layer. Kept at least 50 ms long. Nothing to set until the first recording is done. */
+        void SetWindow(float start, float end)
+        {
+            if(first_record)
+                return;
+            const size_t len = mem_[master_]->length;
+            static constexpr size_t kMinWindow = 4800; // samples, 50 ms of stereo
+            if(len < kMinWindow)
+                return;
+            size_t s = static_cast<size_t>(daisysp::fclamp(start, 0.f, 1.f) * len) & ~size_t(1);
+            size_t e = static_cast<size_t>(daisysp::fclamp(end, 0.f, 1.f) * len) & ~size_t(1);
+            if(e > len)
+                e = len;
+            if(e < s + kMinWindow)
+            {
+                if(s + kMinWindow <= len)
+                    e = s + kMinWindow;
+                else
+                    s = e - kMinWindow;
+            }
+            for(size_t l = 0; l < kNumLayers; l++)
+            {
+                mem_[l]->win_start = s;
+                mem_[l]->win_end   = e;
+            }
         }
 
         float GetPitch()
@@ -323,6 +354,7 @@ namespace daisy
 
         void Reset()
         {
+            ClearWindow();
             for(size_t l = 0; l < kNumLayers; l++)
             {
                 layers_[l].Reset();
@@ -349,6 +381,7 @@ namespace daisy
             record_target = false;
 
             master_ = active_ = 0;
+            ClearWindow();
             Master().SetVarispeed(1.f, true);
             Master().JumpTo(0);
             Master().ForceSetScrub(0.f);
@@ -381,6 +414,12 @@ namespace daisy
 
     private:
         inline FileSampler& Master() { return layers_[master_]; }
+
+        void ClearWindow()
+        {
+            for(size_t l = 0; l < kNumLayers; l++)
+                mem_[l]->win_start = mem_[l]->win_end = 0;
+        }
 
         // the first recording goes to the active layer, if it's clean
         size_t ActiveForFirstRecording() const

@@ -972,11 +972,14 @@ namespace chompi
 
             // white keys and play/pause
             default:
-                // play pause, overdub gain setting
+                // PORTA: CHOMPI + loop arms recording, which starts when the input crosses the threshold
+                // (knob 1 on the sampler page). Pressing it again, or loop alone, stops or cancels it.
+                // This was TAPE's overdub level (CHOMPI + play/loop), which has no control for now.
                 if((buttonID == 33 || buttonID == 34) && preset_mode == PresetMode::NONE)
                 {
-                    const float gain = buttonID == 33 ? -.1f : .1f;
-                    fx_->IncrementLooperDubGain(gain);
+                    if(buttonID == 34 && rising)
+                        ArmRecording();
+                    break;
                 }
 
                 if(rising && layer_select_ && OnLoopPage() && preset_mode == PresetMode::NONE)
@@ -1095,6 +1098,28 @@ namespace chompi
 
         // PORTA: toggle up is the loop page
         inline bool OnLoopPage() const { return switch_state; }
+
+        void ArmRecording()
+        {
+            const float t = enc_values[2][0];
+            const float threshold = t * t * t; // as on knob 1's LED
+            if(OnLoopPage())
+            {
+                if(fx_->IsLooperWaiting())
+                    fx_->CancelLooperWait();
+                else
+                    fx_->ArmLooper(threshold);
+            }
+            else if(!fx_->Recording())
+                fx_->StartNewRecording(0, threshold, true);
+            else if(fx_->StopRecording()) // stopping a waiting recording keeps the old sample
+            {
+                // a new sample starts from the default pitch, start, end and envelope, as NormalPage does
+                for(int page = 0; page < 2; page++)
+                    for(int knob = 0; knob < 3; knob++)
+                        enc_values[page][knob] = enc_defaults[page][knob];
+            }
+        }
 
         // loop page: C# lit, and while the layers show, keys 1-4 are the layers: green the one recorded into,
         // white recorded, dim empty, dim red still being cleared

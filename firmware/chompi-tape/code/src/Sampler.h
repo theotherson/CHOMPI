@@ -27,15 +27,15 @@ namespace daisy
 
         void ReadJumpStart()
         {
-            ReadJump(reverse_ ? ram_buff.GetSize() : 0);
+            ReadJump(reverse_ ? ram_buff.LoopEnd() : ram_buff.LoopStart());
         }
 
         void WriteJumpStart()
         {
             if(reverse_)
-                WriteJump(ram_buff.GetSize());
+                WriteJump(ram_buff.LoopEnd());
             else
-                WriteJump(0);
+                WriteJump(ram_buff.LoopStart());
         }
 
         inline void ReadJump(uint32_t pos = 0) { ram_buff.SetReadHead(pos); }
@@ -194,8 +194,8 @@ namespace daisy
                         rev_pushback = false;
 
                         loop_env += loop_env_dec;
-                        const bool ote = (reverse_ && ram_buff.GetReadHead() > (ram_buff.GetSize() - 50))
-                                         || (!reverse_ && ram_buff.GetReadHead() < 50);
+                        const bool ote = (reverse_ && ram_buff.GetReadHead() > (ram_buff.LoopEnd() - 50))
+                                         || (!reverse_ && ram_buff.GetReadHead() < ram_buff.LoopStart() + 50);
                         if(loop_env < 0.f && ote)
                         {
                             loop_env = 0.f;
@@ -304,6 +304,8 @@ namespace daisy
 
         inline uint32_t GetReadTell() { return ram_buff.GetReadHead(); }
         inline uint32_t GetReadSize() { return ram_buff.GetSize(); }
+        inline uint32_t GetLoopStart() const { return ram_buff.LoopStart(); }
+        inline uint32_t GetLoopEnd() const { return ram_buff.LoopEnd(); }
 
         inline bool WriteFullLength() { return ram_buff.WriteFullLength(); }
 

@@ -33,7 +33,8 @@ RamBufferMemory loop_buff[kNumLayers];
 int16_t DSY_SDRAM_BSS loop_mem[kNumLayers][kMaxRamBuffSize];
 
 RamBufferMemory chompi_buff;
-int16_t DSY_SDRAM_BSS chompi_mem[kMaxRamBuffSize]; 
+// the threshold's pre-roll lives behind the buffer, 8K keeps the next one aligned
+int16_t DSY_SDRAM_BSS chompi_mem[kMaxRamBuffSize + 4096]; 
 
 daisysp::Oscillator osc;
 

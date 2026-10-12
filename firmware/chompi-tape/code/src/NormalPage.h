@@ -283,9 +283,12 @@ namespace chompi
                 {
                 case 0: // speed, gain, pan
                 {
-                    if(!switch_state)
+                    if(OnSamplerPage()) // recording threshold, red while the input is above it (from MIXTAPE)
                     {
-                        r = g = b = 0.f;
+                        const float t = enc_values[2][0];
+                        r = g = b = t;
+                        if(t > 0.f && fx_->GetVUSample(VUTarget::VU_INPUT) >= Threshold())
+                            g = b = 0.f;
                     }
                     else if(page == 0) // speed
                     {
@@ -308,8 +311,10 @@ namespace chompi
                 break;
                 case 1: // start point
                 {
-                    if (page == 0) // start point
+                    if (page == 0) // start point: the sample's, or the loop's on the loop page
                     {
+                        if(!OnSamplerPage())
+                            value = loop_start_;
                         r = color_xfade(yellow[0], orange[0], value);
                         g = color_xfade(yellow[1], orange[1], value);
                         b = color_xfade(yellow[2], orange[2], value);
@@ -325,18 +330,15 @@ namespace chompi
                         fx_->SetAttack(value);
                     }
 
-                    if(!switch_state)
-                    {
-                        r = g = b = 0.f;
-                    }   
-
                     SetPthLedFloat(2, r, g, b);
                     break;
                 }
                 case 2: // end point
                 {
-                    if (page == 0) // end point
+                    if (page == 0) // end point: the sample's, or the loop's on the loop page
                     {
+                        if(!OnSamplerPage())
+                            value = loop_end_;
                         r = color_xfade(orange[0], red[0], value);
                         g = color_xfade(orange[1], red[1], value);
                         b = color_xfade(orange[2], red[2], value);
@@ -350,11 +352,6 @@ namespace chompi
                         b = color_xfade(purple[2] * .2f, purple[2], value);
 
                         fx_->SetDecay(value);
-                    }
-
-                    if(!switch_state)
-                    {
-                        r = g = b = 0.f;
                     }
 
                     SetPthLedFloat(3, r, g, b);
@@ -400,11 +397,6 @@ namespace chompi
                         r = color_triple_xfade(purple[0], pink[0], 1.f, value);
                         g = color_triple_xfade(purple[1], pink[1], 1.f, value);
                         b = color_triple_xfade(purple[2], pink[2], 1.f, value);
-                    }
-
-                    if(!switch_state)
-                    {
-                        r = g = b = 0.f;
                     }
 
                     SetPthLedFloat(4, r, g, b);
@@ -566,10 +558,23 @@ namespace chompi
             }
             SetPthLedFloat(led_map[33], r, g, b);
 
+            if(fx_->GetLooperIsEmpty())
+            {
+                loop_start_ = 0.f;
+                loop_end_   = 1.f;
+            }
+
             // loop key: the record light on the sampler page, the looper on the loop page
             if(OnSamplerPage())
             {
                 RecordLed(now, r, g, b);
+            }
+            else if(fx_->IsLooperWaiting())
+            {
+                const bool on = (now / 150) % 2;
+                r = on ? red[0] : 0.f;
+                g = on ? red[1] : 0.f;
+                b = on ? red[2] : 0.f;
             }
             else if(fx_->GetLooperIsEmpty() && !fx_->IsLooperRecordArmed())
             {
@@ -735,6 +740,11 @@ namespace chompi
                 last_arm_blink = System::GetNow();
                 if(OnSamplerPage())
                     RecordButton(rising);
+                else if(fx_->IsLooperWaiting())
+                {
+                    if(rising)
+                        fx_->CancelLooperWait();
+                }
                 else if(!fx_->Recording())
                     fx_->LooperRecordButton(rising);
                 hw_->SendCC(midi_channel, 27, rising ? 127 : 0);
@@ -858,6 +868,26 @@ namespace chompi
         {
             if (init_ignore || copier_->IsCopying())
                 return false;
+
+            // PORTA sampler page: knob 1 is the recording threshold, off all the way down (from MIXTAPE)
+            if(encoderID == 0 && OnSamplerPage() && stepsPerRevolution == 0)
+            {
+                enc_values[2][0] = fclamp(enc_values[2][0] + turns * kEncoderCoarseStep, 0.f, 1.f);
+                return true;
+            }
+
+            // PORTA loop page: knobs 2 and 3 set the recorded loop's start and end
+            if((encoderID == 1 || encoderID == 2) && knob_page[encoderID] == 0 && !OnSamplerPage()
+               && stepsPerRevolution == 0)
+            {
+                float& v = encoderID == 1 ? loop_start_ : loop_end_;
+                const float old = v;
+                v = fclamp(v + turns * kEncoderFineStep, 0.f, 1.f);
+                if(loop_start_ + .01f >= loop_end_)
+                    v = old;
+                fx_->SetLooperWindow(loop_start_, loop_end_);
+                return true;
+            }
 
             uint8_t page = knob_page[encoderID];
             float old_val = enc_values[page][encoderID];
@@ -989,6 +1019,13 @@ namespace chompi
                 g = record_blink ? pink[1] : 0.f;
                 b = record_blink ? pink[2] : 0.f;
             }
+            else if(fx_->IsRecordWaiting()) // waiting for the threshold: red, blinking
+            {
+                const bool on = (now / 150) % 2;
+                r = on ? red[0] : 0.f;
+                g = on ? red[1] : 0.f;
+                b = on ? red[2] : 0.f;
+            }
             else if(fx_->Recording())
             {
                 r = red[0];
@@ -1017,10 +1054,17 @@ namespace chompi
         // PORTA: the toggle picks the page. Down (TAPE's record position, input monitored) is the sampler page.
         inline bool OnSamplerPage() const { return !switch_state; }
 
+        // the threshold as a level: knob 1 on the sampler page, cubed so the low end is finer (as MIXTAPE)
+        inline float Threshold() const
+        {
+            const float t = enc_values[2][0];
+            return t * t * t;
+        }
+
         // the loop key on the sampler page: record into the buffer, held or latched (TAPE's CHOMPI key did this)
         void RecordButton(bool rising)
         {
-            const bool latch = fx_->GetRecordLatch();
+            const bool latch = fx_->GetRecordLatch() || fx_->IsRecordArmed();
             const bool rec   = fx_->Recording();
 
             if(rising && !rec)
@@ -1037,14 +1081,15 @@ namespace chompi
 
         void StopVoiceRecording()
         {
+            if(!fx_->StopRecording()) // stopped before the threshold, the old sample stays
+                return;
+
             enc_values[0][0] = enc_defaults[0][0];
             enc_values[0][1] = enc_defaults[0][1];
             enc_values[0][2] = enc_defaults[0][2];
             enc_values[1][0] = enc_defaults[1][0];
             enc_values[1][1] = enc_defaults[1][1];
             enc_values[1][2] = enc_defaults[1][2];
-
-            fx_->StopRecording();
         }
 
         inline void SetInitIgnore(bool ignore) { init_ignore = ignore; }
@@ -1064,6 +1109,7 @@ namespace chompi
         uint8_t midi_channel = 0;
         bool switch_state = false;
         bool chompi_key_pressed = false;
+        float loop_start_ = 0.f, loop_end_ = 1.f; // loop page: the window of the recorded loop
         uint8_t* knob_page;
         bool quantized_pitch_;
         bool split_delay_;
