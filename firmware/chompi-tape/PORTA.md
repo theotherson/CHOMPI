@@ -26,8 +26,11 @@ Items marked **(open)** are undecided.
 
 - A sample is one sound; a loop is samples played (freely or sequenced) and recorded onto a track, or a bounce.
 - Chromatic and kit playing live on the 4TRACK page only; the sampler page captures and edits.
-- Sampler loop key: hold to record, tap to arm (threshold), tap to stop and keep playing, tap to overdub; no
-  replace (delete with play + loop held, then record again).
+- Sampler loop key (**built**, a one-layer looper on the 10 s sample buffer): empty: hold to record while
+  held, tap to arm (knob 1's threshold; with it off, records latched); recording: tap to stop and keep
+  playing; with a sample: tap to overdub (latched) or hold to overdub while held; armed: tap to cancel. Play:
+  play / pause the sample; play + loop held 2 s: delete. No replace: delete, then record again. Keys play the
+  sample at its own pitch. **(open)** The sample's playback isn't through knob 4's FX yet.
 - Kit capture: open the kit picker and arm; each threshold-crossing hit becomes a snapshot in the next slot
   (1…15) until loop is pressed; the filled slots blink, then save or delete the kit.
 - Toggle **up** is the sampler page (TAPE's record position), **down** the 4TRACK page.
