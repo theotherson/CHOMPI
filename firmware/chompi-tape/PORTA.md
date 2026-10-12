@@ -4,12 +4,41 @@ A CHOMPI firmware built on TAPE 2.0 with two sides: making samples and building 
 It borrows from Chase Bliss Blooper (layered loops you can manipulate and print) and the OP-1
 (projects, a tape you build up). This is the design spec; it changes as decisions are made.
 
+**Lineage:** Casio SK-1 and VSS-30, Boss SP-303: short samples, resampling as the way to build things up.
+
 **Status:** groundwork on the `porta` branch. A first draft of the features (page switch, sampler-page keys,
 four-layer looper) is on `porta-draft`. Neither has been tested on hardware yet.
 
 Items marked **(open)** are undecided.
 
 ---
+
+## The model (proposed 2026-10-12, open: confirm)
+
+```
+ SAMPLER page                 4TRACK page (was "loop page")
+ capture sounds        ──▶    PLAY them: C# chromatic, D# kits, F# loops, G# sequencer/arp
+  · a sample (≤ 10 s)         RECORD what's played onto a track = resampling, how loops are made
+  · a kit (15 hits,           BOUNCE tracks together
+    ≤ 1.5 s each)             SAVE a track as a loop → loop bank
+ save to sample/kit bank      PROJECTS of 4 tracks
+```
+
+- A sample is one sound; a loop is samples played (freely or sequenced) and recorded onto a track, or a bounce.
+- Chromatic and kit playing live on the 4TRACK page only; the sampler page captures and edits.
+- Sampler loop key: hold to record, tap to arm (threshold), tap to stop and keep playing, tap to overdub; no
+  replace (delete with play + loop held, then record again).
+- Kit capture: open the kit picker and arm; each threshold-crossing hit becomes a snapshot in the next slot
+  (1…15) until loop is pressed; the filled slots blink, then save or delete the kit.
+- **(open)** Toggle direction: Sam mentioned the top position for sample generation; today down is the sampler.
+
+### Length limits (decided 2026-10-12)
+
+| | Cap | Why |
+|---|---|---|
+| Samples | ~10 s | What makes RAM-loaded banks possible (a bank is 15 × the sample length); frees ~8.5 MB of the 55 s buffer; finer start/end trimming |
+| Kit slots | ~1.5 s | Hits are short anyway; keeps kits small |
+| Loops | a track's length (55 s) | A cap saves nothing: tracks reserve 55 s whatever they hold, loop files live on the SD card. Trim with knobs 2/3 |
 
 ## The two pages
 
