@@ -17,7 +17,7 @@ Items marked **(open)** are undecided.
 
 ```
  SAMPLER page                 4TRACK page (was "loop page")
- capture sounds        ──▶    PLAY them: C# chromatic, D# kits, F# loops, A# sequencer/arp, G# tracks/projects
+ capture sounds        ──▶    PLAY them: C# chromatic, D# kits, F# loops, mid D# sequencer/arp, A# length, G# tracks/projects
   · a sample (≤ 10 s)         RECORD what's played onto a track = resampling, how loops are made
   · a kit (15 hits,           BOUNCE tracks together
     ≤ 1.5 s each)             SAVE a track as a loop → loop bank
@@ -42,6 +42,37 @@ Items marked **(open)** are undecided.
 | Samples | ~10 s | What makes RAM-loaded banks possible (a bank is 15 × the sample length); frees ~8.5 MB of the 55 s buffer; finer start/end trimming |
 | Kit slots | ~1.5 s | Hits are short anyway; keeps kits small |
 | Loops | a track's length (55 s) | A cap saves nothing: tracks reserve 55 s whatever they hold, loop files live on the SD card. Trim with knobs 2/3 |
+
+## 4TRACK page v2: a loop player and four tracks you print onto (decided 2026-10-12)
+
+Replaces the draft where layers recorded directly. **Not built yet**; the current build still has the
+four-layer looper.
+
+```
+ LOOP PLAYER (the source)                      TRACKS 1–4
+ · a recorded performance, or a loop           · a track "listens" (prints) in real time while you
+   loaded from F#                                hold CHOMPI + tap the current track (it flashes
+ · trimmed by its loop window, with              red), recording whatever is playing: the loop with
+   speed, FX, knobs 1–4                          its FX, speed and window, plus live keys
+ · never changed by printing                   · printing again adds on top (additive)
+                                               · length: baked from the length view, or else as
+                                                 long as it listened
+                                               · can be saved as a new loop
+```
+
+- **Two windows:** a track's length, and the loop window inside it. The loop repeats within the track's
+  length, cut off at the end if it doesn't fit. Loading a new loop never changes a track's length.
+- **Length view (low A#):** each press steps through pages: number of bars, tempo, time signature. Hold length
+  to show the tracks, then hold track(s) to bake the length into them (purple or blue while picking). Tracks can
+  have different lengths, each looping on its own, lined up to the bar grid; baking several at once gives them
+  the same length. Then a new length can be set and baked into other tracks.
+- **Printing FX:** a one-shot bake (the FX print once, then the knobs reset, MIXTAPE-style) by default; a
+  **toggle** prints FX continuously while overdubbing (Blooper-style, piles up; revisit if bakes sound tame).
+  Printing with changed speed gives tape-style pitch feedback loops.
+- **FX sends:** each track gets a send level into the one shared FX chain (separate FX per track won't fit);
+  while a track prints its FX, the other tracks' sends mute.
+- **Track picker, CHOMPI + tap:** the current track: print while CHOMPI is held; another track: select it.
+- **Track LEDs (built):** empty dim white, with content pink, selected green, muted blinks dimly.
 
 ## The two pages
 
@@ -90,9 +121,9 @@ is open, the knobs, play and loop work as normal unless CHOMPI is held.
 | low D# | **15-voice kits** (like TEMPO's second bank) **(planned; open: where the kit sounds come from)**. Today it's still TAPE's CUBBI banks, which move to F# |
 | low F# | **Loop picker (planned):** TAPE's D# (CUBBI) banks, which are loops, move here. Tap F# to scroll banks: two for now, one full (the existing loops), one empty for new ones. Hold a loop, the layer picker appears, tap a layer to load it there **(open: where new loops come from: sampler recordings, tracks, or both)** |
 | low G# | Tap: **layer picker** (see Layer view). Hold: **project picker (planned)** |
-| low A# | **Sequencer / arpeggiator (planned):** tap on / off, hold for patterns, CHOMPI + tap to latch (no input select on this page) |
+| low A# | **Length view (planned):** bars / tempo / time signature pages; hold + hold tracks to bake (see 4TRACK v2) |
 | mid C# | FX pre/post toggle |
-| mid D#, others | Later: pattern length, quantisation… so beats can be locked in |
+| mid D# | **Sequencer / arpeggiator (planned)** |
 | upper F# / G# / A# | Erase / copy / save, as in TAPE |
 
 ### Sampler page
@@ -104,19 +135,18 @@ is open, the knobs, play and loop work as normal unless CHOMPI is held.
 | low A# | Input type: cycles mic → aux → resample. Key LED colour shows which |
 | mid C#, mid D#, upper F#/G#/A# | As on the loop page **(open)** |
 
-### Sequencer / arpeggiator (A#, 4TRACK page, planned)
+### Sequencer / arpeggiator (middle D#, 4TRACK page, planned)
 
 From TEMPO's sequencer. "Shift" is the CHOMPI key. On the 4TRACK page the black keys show their menu
 functions only with CHOMPI held, so:
 
 | Gesture | Does |
 |---|---|
-| CHOMPI + tap A# | latch: holds the notes when nothing plays, the arp when it does |
-| CHOMPI + hold A# | patterns on the white keys (below); picking one turns it on, key 1 turns it off |
-| tap A# in a latched picker | on / off |
-| middle D# | sequence or arpeggio |
+| CHOMPI + tap middle D# | latch: holds the notes when nothing plays, the arp when it does |
+| CHOMPI + hold middle D# | patterns on the white keys (below); picking one turns it on, key 1 turns it off |
 
-**(open)** Exact on/off gesture, now that A# isn't a note only inside the CHOMPI menu.
+**(open)** Exact on/off gesture, and where choosing sequence vs arpeggio goes now that middle D# is the
+sequencer itself.
 
 Pattern keys (white keys while the patterns show):
 
@@ -294,16 +324,14 @@ arrays would be safer.
 
 ## Later ideas
 
-### Kits as the slice machine; sequencer on A# (2026-10-12)
+### Kits as the slice machine (2026-10-12)
 
 - **Low D# (kits)** is also the slice machine. Two ways to make a kit, as separate functions on the same
   button **(open: which gesture is which)**:
   1. threshold capture: each hit becomes the next slot (as above);
   2. record up to ~15 s, then slice it evenly onto the 15 white keys.
-- **Low A# (4TRACK page): the sequencer / arpeggiator.** Tap: on / off; hold: pattern options on the white
-  keys; CHOMPI + tap: latch. It plays the kit (or the chromatic sample) as a sequence or an arpeggio.
-- **Middle D#:** sequence or arpeggio.
-- **(open)** Loop length, pencilled in for middle D#, needs another home. Slicing wants up to ~15 s of
+- The sequencer / arpeggiator (middle D#) plays the kit, or the chromatic sample, as a sequence or an arpeggio.
+- Slicing wants up to ~15 s of
   source, more than the sampler's 10 s; a kit buffer of its own is fine on memory (~2.9 MB).
 
 ## Groundwork (done)
