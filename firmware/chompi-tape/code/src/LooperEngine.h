@@ -43,7 +43,10 @@ namespace daisy
             record_arm = false;
             playing = false;
 
-            Master().Reset();
+            // start empty, at once: TAPE ran its fading reset here, which on the sampler (whose buffer
+            // holds TAPE's default sample by the time audio starts) played it slowing down at boot
+            for(auto& layer : Layers())
+                layer.ResetRamBuff();
 
             fx_env_ = fx_env_target_ = 1.f;
         }
