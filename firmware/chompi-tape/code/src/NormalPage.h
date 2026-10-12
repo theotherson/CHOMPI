@@ -119,7 +119,8 @@ namespace chompi
     static const float dark_orange[3] = {.77f, .38f, .06f};
     static const float yellow_green[3] = {.706f, 1.f, 0.f};
 
-    static const uint8_t knob_num_pages[6] = {3, 2, 2, 3, 1, 2}; // PORTA: knob 1: level, threshold, tuning
+    static const uint8_t knob_num_pages[6] = {3, 2, 2, 2, 1, 2}; // PORTA: knob 1: level, threshold, tuning;
+                                                                  // knobs 2/3: start/end, cutoff/resonance
 
     class NormalPage : public daisy::UiPage
     {
@@ -320,14 +321,16 @@ namespace chompi
 
                         // fx_->SetStartPoint(value);
                     }
-                    else // env. attack
+                    else // PORTA: the filter's cutoff, moved from knob 4
                     {
-                        r = color_xfade(purple[0] * .2f, purple[0], value);
-                        g = color_xfade(purple[1] * .2f, purple[1], value);
-                        b = color_xfade(purple[2] * .2f, purple[2], value);
-
-                        fx_->SetAttack(value);
+                        value = enc_values[2][3];
+                        r = color_triple_xfade(purple[0], pink[0], 1.f, value);
+                        g = color_triple_xfade(purple[1], pink[1], 1.f, value);
+                        b = color_triple_xfade(purple[2], pink[2], 1.f, value);
                     }
+                    // kept applied: the amp attack (CHOMPI on this knob) and the cutoff
+                    fx_->SetAttack(enc_values[1][1]);
+                    fx_->SetFilter(enc_values[2][3]);
 
                     SetPthLedFloat(2, r, g, b);
                     break;
@@ -343,14 +346,14 @@ namespace chompi
 
                         // fx_->SetEndPoint(value);
                     }
-                    else // env. decay
+                    else // PORTA: the filter's resonance
                     {
+                        value = fx_->GetFilterResonance();
                         r = color_xfade(purple[0] * .2f, purple[0], value);
                         g = color_xfade(purple[1] * .2f, purple[1], value);
                         b = color_xfade(purple[2] * .2f, purple[2], value);
-
-                        fx_->SetDecay(value);
                     }
+                    fx_->SetDecay(enc_values[1][2]); // kept applied: the amp release (CHOMPI on this knob)
 
                     SetPthLedFloat(3, r, g, b);
                     break;
@@ -382,19 +385,12 @@ namespace chompi
                             b = color_triple_xfade(teal[2], med_blue[2], blue[2], value);
                         }
                     }
-                    else if (page == 1) // lofi
+                    else // lofi (PORTA: the filter moved to knobs 2/3)
                     {
                         fx_->SetSaturate(value);
                         r = color_triple_xfade(yellow[0], orange[0], red[0], value);
                         g = color_triple_xfade(yellow[1], orange[1], red[1], value);
                         b = color_triple_xfade(yellow[2], orange[2], red[2], value);
-                    }
-                    else // filter
-                    {
-                        fx_->SetFilter(value);
-                        r = color_triple_xfade(purple[0], pink[0], 1.f, value);
-                        g = color_triple_xfade(purple[1], pink[1], 1.f, value);
-                        b = color_triple_xfade(purple[2], pink[2], 1.f, value);
                     }
 
                     SetPthLedFloat(4, r, g, b);
@@ -935,6 +931,20 @@ namespace chompi
                     fx_->SetSamplerSpeed(fx_->SamplerSpeed() + turns * kEncoderFineStep);
                 else
                     fx_->SetSamplerScrub(turns);
+                return true;
+            }
+
+            // PORTA, both pages: knobs 2 and 3's second page is the filter, cutoff and resonance
+            if((encoderID == 1 || encoderID == 2) && knob_page[encoderID] == 1 && stepsPerRevolution == 0)
+            {
+                if(encoderID == 1)
+                {
+                    enc_values[2][3] = fclamp(enc_values[2][3] + turns * kEncoderCoarseStep, 0.f, 1.f);
+                    fx_->SetFilter(enc_values[2][3]);
+                }
+                else
+                    fx_->SetFilterResonance(
+                        fclamp(fx_->GetFilterResonance() + turns * kEncoderCoarseStep, 0.f, 1.f));
                 return true;
             }
 

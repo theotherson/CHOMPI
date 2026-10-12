@@ -252,13 +252,9 @@ namespace chompi
                 {
                     SetPthLedFloat(4, delay_time, delay_time, delay_time);
                 }
-                else if(knob_page[3] == 1) // lofi
+                else // lofi
                 {
                     SetPthLedFloat(4, warble, warble, warble);
-                }
-                else // filter
-                {
-                    SetPthLedFloat(4, resonance, resonance, resonance);
                 }
 
                 if(input_toggled)
@@ -520,58 +516,41 @@ namespace chompi
 
                     DumpValuePresets();
                 }
-                // move sample window (both start and end pos)
-                else if ( (encoderID == 1 && page == 0)
-                         || (encoderID == 2 && page == 0)
-                )
+                // PORTA: CHOMPI + knobs 2 and 3 are envelopes: on the first page the amp's attack and
+                // release, on the second (the filter page) the filter envelope's
+                else if (encoderID == 1 || encoderID == 2)
                 {
-                    // positive and negative get blocked from moving out of bounds
-                    if( !(turns > 0 && enc_values[0][2] + inc > 1.f) // positive clip
-                        && !(turns < 0 && enc_values[0][1] + inc < 0.f) ) // negative clip
+                    float val;
+                    if(page == 0)
                     {
-                        enc_values[0][1] += inc;
-                        enc_values[0][2] += inc;
-                        fx_->SetStartPointForce(enc_values[0][1]);
-                        fx_->SetEndPointForce(enc_values[0][2]);
-
+                        float& v = enc_values[1][encoderID]; // [1][1] attack, [1][2] release, saved per slot
+                        v = val = fclamp(v + inc, 0.f, 1.f);
+                        if(encoderID == 1)
+                            fx_->SetAttack(val);
+                        else
+                            fx_->SetDecay(val);
                         DumpValuePresets();
+                        r = color_xfade(purple[0] * .2f, purple[0], val);
+                        g = color_xfade(purple[1] * .2f, purple[1], val);
+                        b = color_xfade(purple[2] * .2f, purple[2], val);
                     }
-
-                    // start point
-                    r = color_xfade(yellow[0], orange[0], enc_values[0][1]);
-                    g = color_xfade(yellow[1], orange[1], enc_values[0][1]);
-                    b = color_xfade(yellow[2], orange[2], enc_values[0][1]);
-                    SetPthLedFloat(2, r, g, b);
-
-                    // end point
-                    r = color_xfade(orange[0], red[0], enc_values[0][2]);
-                    g = color_xfade(orange[1], red[1], enc_values[0][2]);
-                    b = color_xfade(orange[2], red[2], enc_values[0][2]);
-                    SetPthLedFloat(3, r, g, b);
-                    knob_page[1] = knob_page[2] = 0;
-                }
-                // set both attack and decay at once
-                else if ( (encoderID == 1 && page == 1)
-                         || (encoderID == 2 && page == 1)
-                )
-                {
-                    float val = encoderID == 1 ? enc_values[1][1] : enc_values[1][2];
-                    val = fclamp(val + inc, 0.f, 1.f);
-                    fx_->SetAttack(val);
-                    fx_->SetDecay(val);
-
-                    DumpValuePresets();
-
-                    // att.
-                    r = color_xfade(purple[0] * .2f, purple[0], val);
-                    g = color_xfade(purple[1] * .2f, purple[1], val);
-                    b = color_xfade(purple[2] * .2f, purple[2], val);
-                    SetPthLedFloat(2, r, g, b);
-                    SetPthLedFloat(3, r, g, b);
-
-                    enc_values[1][1] = val;
-                    enc_values[1][2] = val;
-                    knob_page[1] = knob_page[2] = 1;
+                    else
+                    {
+                        if(encoderID == 1)
+                        {
+                            val = fclamp(fx_->GetFilterEnvAttack() + inc, 0.f, 1.f);
+                            fx_->SetFilterEnvAttack(val);
+                        }
+                        else
+                        {
+                            val = fclamp(fx_->GetFilterEnvRelease() + inc, 0.f, 1.f);
+                            fx_->SetFilterEnvRelease(val);
+                        }
+                        r = color_xfade(pink[0] * .2f, pink[0], val);
+                        g = color_xfade(pink[1] * .2f, pink[1], val);
+                        b = color_xfade(pink[2] * .2f, pink[2], val);
+                    }
+                    SetPthLedFloat(encoderID + 1, r, g, b);
                 }
                 else if (encoderID == 3)
                 {
@@ -581,17 +560,11 @@ namespace chompi
                         delay_time = fclamp(delay_time, 0.f, 1.f);
                         fx_->SetDelayTime(delay_time);
                     }
-                    else if (page == 1) // lofi
+                    else // lofi (PORTA: the filter moved to knobs 2/3)
                     {
                         warble += inc;
                         warble = fclamp(warble, 0.f, 1.f);
                         fx_->SetWarble(warble);
-                    }
-                    else if(page == 2) // filter
-                    {
-                        resonance += inc;
-                        resonance = fclamp(resonance, 0.f, 1.f);
-                        fx_->SetFilterResonance(resonance);
                     }
                 }
                 else if(encoderID == 4)

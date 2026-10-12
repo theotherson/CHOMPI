@@ -180,6 +180,9 @@ namespace daisy
             mic_filter_.Init(samplerate);
 
             filter_.Init(samplerate);
+            sr_ = samplerate;
+            SetFilterEnvAttack(0.f);
+            SetFilterEnvRelease(0.f);
             filter_.SetControl(.5f);
             cutoff_target_ = .5f;
             res_ = res_target_ = 0.f;
@@ -319,7 +322,19 @@ namespace daisy
                 outl[i] *= fx_env_;
                 outr[i] *= fx_env_;
 
-                filter_.SetControl(cutoff_);
+                // PORTA filter envelope: each key sweeps the DJ filter towards open (the middle) and back
+                if(fenv_rising_)
+                {
+                    fenv_ += fenv_att_inc_;
+                    if(fenv_ >= 1.f)
+                    {
+                        fenv_ = 1.f;
+                        fenv_rising_ = false;
+                    }
+                }
+                else if(fenv_ > 0.f)
+                    fenv_ = fenv_ > fenv_rel_inc_ ? fenv_ - fenv_rel_inc_ : 0.f;
+                filter_.SetControl(cutoff_ + (.5f - cutoff_) * fenv_);
                 filter_.SetRes(res_);
 
                 outl[i] = dcblock_fx_l_.Process(outl[i]);
@@ -941,7 +956,10 @@ namespace daisy
                 KeyRequest req = request_fifo.PopFront();
                 
                 if (req.type_ == KeyRequest::Type::START)
+                {
                     StartPlayback(req.transpose_nn_, req.key_, req.vel_);
+                    fenv_rising_ = true; // every key retriggers the filter envelope
+                }
                 else if (req.type_ == KeyRequest::Type::STOP)
                     StopPlayback(req.key_);
             }
@@ -1306,6 +1324,22 @@ namespace daisy
 
         inline void SetFilter(float val) { cutoff_target_ = val; }
         inline void SetFilterResonance(float val) { res_target_ = val; }
+        inline float GetFilterResonance() const { return res_target_; }
+
+        /** PORTA filter envelope times, 0-1: about 1 ms to 4 s. A release at 0 leaves the filter alone. */
+        void SetFilterEnvAttack(float val)
+        {
+            fenv_att_ = daisysp::fclamp(val, 0.f, 1.f);
+            fenv_att_inc_ = EnvInc(fenv_att_);
+        }
+        void SetFilterEnvRelease(float val)
+        {
+            fenv_rel_ = daisysp::fclamp(val, 0.f, 1.f);
+            fenv_rel_inc_ = EnvInc(fenv_rel_);
+        }
+        inline float GetFilterEnvAttack() const { return fenv_att_; }
+        inline float GetFilterEnvRelease() const { return fenv_rel_; }
+        inline float EnvInc(float val) const { return 1.f / (.001f * powf(4000.f, val) * sr_); }
         inline void SetSaturate(float val) 
         { 
             val = logf(1.7f * val + 1.f); 
@@ -1971,6 +2005,11 @@ namespace daisy
         float dly_amt_, dly_amt_target_;
         float saturate_amt_, saturate_amt_target_;
         float cutoff_, cutoff_target_;
+        float sr_ = 48000.f;
+        float fenv_ = 0.f;                      // the filter envelope, 0-1
+        volatile bool fenv_rising_ = false;
+        float fenv_att_ = 0.f, fenv_rel_ = 0.f; // knob values
+        float fenv_att_inc_ = 1.f, fenv_rel_inc_ = 1.f;
         float res_, res_target_;
         
         bool fx_pre_loop;
