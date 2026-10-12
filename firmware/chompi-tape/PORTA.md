@@ -136,6 +136,11 @@ is open, the knobs, play and loop work as normal unless CHOMPI is held.
 
 ### Sampler page
 
+The menu is **always shown** on the sampler page, no CHOMPI needed: black keys are always their functions,
+white keys show the slots but play the sample (save / copy / erase still pick slots with them). CHOMPI held
+still shows the full menu. The loop key's LED: off while the buffer's empty; blinking red armed, red first take,
+yellow overdub, dim white holding a sample.
+
 | Key | Function |
 |---|---|
 | low C# / D# | Today: TAPE's banks (momentary). **(open)** In the model, playing banks and kits is the 4TRACK page's; the sampler page will pick kit capture here |
@@ -179,7 +184,7 @@ The threshold is shared: the loop page's armed recording uses the value set on t
 
 | Gesture | Sampler page | Loop page |
 |---|---|---|
-| Loop | Record a sample now (held, or latched with TAPE's latch option) | **Stopped:** arm the selected layer; the next note or loop press starts the take (loop key flashes). **Playing:** overdub, as TAPE |
+| Loop | See the sampler loop key above | **Stopped:** arm the selected layer; the next note or loop press starts the take (loop key flashes; an open track picker closes so the note can be played). **Playing:** overdub, as TAPE |
 | CHOMPI + loop | **Arm:** recording starts when the input crosses the threshold | **Arm:** the first take or an overdub starts at the threshold |
 | Loop, or CHOMPI + loop, while armed/recording | Stop (or cancel; the old sample stays) | Cancel the arm |
 
