@@ -579,11 +579,11 @@ namespace chompi
                 }
                 else if(encoderID == 4)
                 {
-                    // PORTA: CHOMPI + wheel always steps (octaves and fifths, through reverse), whatever TAPE's
-                    // quantize option says; on the sampler page it's the sample loop's speed
+                    // PORTA: CHOMPI + wheel on the 4TRACK page is the tracks' speed (the wheel alone the loop
+                    // buffer's); on the sampler page it steps the sample loop's speed (octaves and fifths)
                     float speed;
                     if(OnLoopPage())
-                        speed = enc_values[0][4] = fx_->SetLooperPitchQuantized(turns, enc_values[0][4]);
+                        speed = fx_->SetTrackSpeed(fx_->TrackSpeed() + turns * kEncoderFineStep);
                     else
                     {
                         fx_->SetSamplerPitchStepped(turns);
@@ -754,6 +754,12 @@ namespace chompi
 
             // reset the looper pitch via fall through
             case ENC_5_SW:
+                if(OnLoopPage()) // CHOMPI + wheel click: the tracks back to 1x
+                {
+                    if(rising)
+                        fx_->SetTrackSpeed(.75f);
+                    break;
+                }
                 return false;
 
             // PORTA: auto-loop and sustain are for playing notes, so these are the 4TRACK page's only
@@ -1302,7 +1308,7 @@ namespace chompi
                             if(!(print_fired_ & bit))
                             {
                                 if(fx_->IsPrinting() && fx_->GetLooperLayer() == key - 1)
-                                    fx_->StopPrint();
+                                    fx_->UnarmTrack(); // the loop buffer stops, the tracks play on
                                 else
                                     fx_->ToggleLooperMute(key - 1);
                             }

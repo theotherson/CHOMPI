@@ -1448,8 +1448,8 @@ namespace daisy
                 loop_.PlayButton(false);
                 tracks_.PlayButton(false);
             }
-            else if(loop_.GetIsEmpty())
-                tracks_.PlayButton(true);
+            else if(loop_.GetIsEmpty() || (!loop_.IsPlaying() && tracks_.IsPlaying()))
+                tracks_.PlayButton(true); // no loop, or only the tracks playing: the key is theirs
             else
                 loop_.PlayButton(true);
         }
@@ -1588,16 +1588,37 @@ namespace daisy
                 tracks_.StartTake();
         }
         void StopPrint() { tracks_.StopTake(); }
+        /** a printing track tapped: the print stops and the loop buffer with it; the tracks play on */
+        void UnarmTrack() { unarm_req_ = true; }
+
+        /** CHOMPI + wheel on the 4TRACK page: the tracks' speed, all together. The wheel's position as the
+         *  loop buffer's: 0-1 is -2x to 2x, .75 is 1x. */
+        float SetTrackSpeed(float pos)
+        {
+            track_speed_ = daisysp::fclamp(pos, 0.f, 1.f);
+            tracks_.SetPitch(track_speed_ * 4.f - 2.f);
+            return track_speed_;
+        }
+        inline float TrackSpeed() const { return track_speed_; }
         inline bool IsPrinting() { return tracks_.IsRecording(); }
         inline bool IsFirstPrint() { return tracks_.IsFirstRecording(); }
         inline bool TracksEmpty() { return tracks_.GetIsEmpty(); }
         inline bool TracksPlaying() { return tracks_.IsPlaying(); }
         inline float TracksPosition() { return tracks_.GetPosition(); } // 0-1 through the tracks' length
 
-        /** the tracks play while the loop buffer does; with it empty, the play key runs them. A print stops
-         *  when the loop buffer stops. */
+        /** the tracks play while the loop buffer does; with it empty, or stopped while they play (after a
+         *  print), the play key runs them. A print stops when the loop buffer stops. */
         void TracksFollowLoop()
         {
+            if(unarm_req_) // here, in the audio, so the loop stopping doesn't stop the tracks too
+            {
+                unarm_req_ = false;
+                StopPrint();
+                if(loop_.IsPlaying() && !loop_.IsRecording())
+                    loop_.TogglePlaying();
+                loop_was_playing_ = loop_.IsPlaying();
+                return;
+            }
             const bool playing = loop_.IsPlaying();
             if(!loop_.GetIsEmpty() && playing != loop_was_playing_)
             {
@@ -2051,6 +2072,8 @@ namespace daisy
         LooperEngine loop_;
         LooperEngine tracks_;
         bool loop_was_playing_ = false;
+        volatile bool unarm_req_ = false;
+        float track_speed_ = .75f; // 1x
         LooperEngine sampler_; // PORTA: the sampler page's sample looper, one layer
         RamBufferMemory* sampler_buff_ = nullptr;
         bool key_restore_play_ = false; // the loop was playing before the top key played it

@@ -195,7 +195,7 @@ Each knob's click steps its pages; CHOMPI + a knob is its second function (the "
 | 2 / 3 | 1 | **Start / end:** the sample loop's on the sampler page (live, down to 10 ms, finer as they close in; bake uses them), the recorded loop's (all layers) on the 4TRACK page | Amp attack / release (saved per slot, as TAPE) |
 | 2 / 3 | 2 | **Filter cutoff / resonance** (TAPE's DJ filter, moved from knob 4: low-pass left, high-pass right, open in the middle) | **Filter envelope attack / release** (1 ms to 4 s; both at zero = off) |
 | 4 | 1 / 2 | FX: reverb / delay, lofi (TAPE; the filter page moved to knobs 2/3) | Delay time, warble |
-| Wheel | | The sample loop's speed while it plays, scrub while stopped (sampler page); TAPE's looper (4TRACK) | **Always stepped** (octaves and fifths, through reverse), on both pages |
+| Wheel | | The sample loop's speed while it plays, scrub while stopped (sampler page); the loop buffer's speed / direction (4TRACK) | Sampler page: **stepped** (octaves and fifths, through reverse). 4TRACK page: **the tracks' speed**, all together (-2x to 2x); CHOMPI + wheel click puts them back to 1x |
 | Volume | | TAPE | TAPE |
 
 - **Every key press retriggers the filter envelope**, which sweeps the filter from knob 2's setting towards
@@ -267,7 +267,9 @@ The 4TRACK page is now a **loop buffer** plus **four tracks**:
 - **Tracks:** print what's heard after the FX (the loop buffer, live keys and input; not the other tracks).
   The first print sets the tracks' length (one shared length for now; per-track lengths come with the length
   view's baking). Printing again adds on top. The tracks play while the loop buffer plays, and stop with it;
-  with the loop buffer empty, the play key runs them.
+  with the loop buffer empty, the play key runs them. **Unarming a print (tapping the track) stops the loop
+  buffer and keeps the tracks playing**; the play key then stops the tracks, and the next press starts the
+  loop buffer (and the tracks with it) again.
 
 CHOMPI + G# opens the track view, and it **stays open** (G# again closes it):
 - white keys 1–4 are the tracks, 5–15 a **playhead** through the tracks' length, left to right, in the
@@ -276,7 +278,7 @@ CHOMPI + G# opens the track view, and it **stays open** (G# again closes it):
 
 | Gesture | Does |
 |---|---|
-| hold a track ~0.5 s | **arm it, "listening":** it prints what plays (flashing red) until it's tapped again, or the loop buffer stops |
+| hold a track ~0.5 s | **arm it, "listening":** it prints what plays (flashing red) until it's tapped again (which also stops the loop buffer; the tracks play on), or the loop buffer stops |
 | tap a track | turn it on / off (mute); a printing track: stop printing |
 | CHOMPI + tap a track | **select it** (even if it already is), ending any audition |
 | CHOMPI + hold a track 2 s | audition it: only that track plays (it pulses) **until CHOMPI is released**. Stopped, it plays once from the top, then ends |
