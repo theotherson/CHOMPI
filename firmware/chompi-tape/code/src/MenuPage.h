@@ -88,6 +88,14 @@ namespace chompi
                 last_blink = now;
             }
 
+            if(fx_->TakeBakeDone())
+            {
+                fx_->SamplerAdoptBake();
+                ResetFxAfterBake();
+                enc_values[0][1] = enc_defaults[0][1]; // the trim is baked in
+                enc_values[0][2] = enc_defaults[0][2];
+            }
+
             if(loading_ && !copier_->IsCopying()) // a sample loaded into the buffer: the sampler takes it
             {
                 fx_->SamplerAdoptBuffer();
@@ -371,6 +379,10 @@ namespace chompi
             // Low F# (slices) is free for now; low G# is the loop page's layer picker, drawn below.
             SetSmtLedFloat(2, 0.f, 0.f, 0.f);
             SetSmtLedFloat(3, 0.f, 0.f, 0.f);
+            if(!OnLoopPage() && fx_->SamplerBaking()) // bake: magenta, flashing while it plays through
+                SetSmtLedFloat(2, blink_state ? 1.f : 0.f, 0.f, blink_state ? 1.f : 0.f);
+            else if(!OnLoopPage() && !fx_->SamplerEmpty())
+                SetSmtLedFloat(2, .6f, 0.f, .6f);
             if(OnLoopPage())
                 SetSmtLedFloat(4, 0.f, 0.f, 0.f);
             else switch(fx_->GetInputSource())
@@ -921,10 +933,13 @@ namespace chompi
             }
             break;
 
-            // PORTA: low F#, the slice machine, not built yet
+            // PORTA: low F#. Sampler page: bake (the sample, trimmed, through the FX, into the buffer).
+            // 4TRACK page: the loop banks, not built yet.
             case static_cast<uint16_t>(Hardware::SwId::KEY_18):
             {
-                if(!rising)
+                if(rising && !OnLoopPage())
+                    fx_->SamplerBake(enc_values[0][1], enc_values[0][2]);
+                else if(!rising)
                     return false; // note off falls through
                 break;
             }
@@ -1307,6 +1322,26 @@ namespace chompi
             if(state != switch_state)
                 SetLatch(Latch::NONE); // the pickers belong to the page they were opened on
             switch_state = state;
+        }
+
+        /** PORTA: after a bake the FX are in the sample, so knob 4's pages and CHOMPI's resonance, warble and
+         *  delay time go back to neutral (as MIXTAPE's bake) */
+        void ResetFxAfterBake()
+        {
+            for(int page = 0; page < 3; page++)
+                enc_values[page][3] = enc_defaults[page][3];
+            if(split_delay_)
+                enc_values[0][3] = .5f;
+            fx_->SetReverb(split_delay_ ? 0.f : enc_values[0][3]);
+            fx_->SetDelayFeedback(split_delay_ ? 0.f : enc_values[0][3]);
+            fx_->SetSaturate(enc_values[1][3]);
+            fx_->SetFilter(enc_values[2][3]);
+            resonance  = 0.f;
+            warble     = 0.f;
+            delay_time = .5f;
+            fx_->SetFilterResonance(resonance);
+            fx_->SetWarble(warble);
+            fx_->SetDelayTime(delay_time);
         }
 
         /** PORTA sampler page: load a slot of the current bank into the sample buffer, TAPE's copy into

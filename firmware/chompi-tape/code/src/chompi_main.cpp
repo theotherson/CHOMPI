@@ -35,6 +35,7 @@ int16_t DSY_SDRAM_BSS loop_mem[kNumLayers][kMaxRamBuffSize];
 RamBufferMemory chompi_buff;
 // the threshold's pre-roll lives behind the buffer, 8K keeps the next one aligned
 int16_t DSY_SDRAM_BSS chompi_mem[kMaxSampleSize + 4096]; // 10 s
+int16_t DSY_SDRAM_BSS bake_mem[kMaxSampleSize];          // a bake prints the sample here first
 
 daisysp::Oscillator osc;
 
@@ -396,6 +397,8 @@ int main(void)
                 loop_buff, &chompi_buff, 
                 options.record_latch, options.tape_slew_on,
                 MonitorMode(options.monitor_position));
+
+    engine.SetBakeMemory(bake_mem, kMaxSampleSize);
 
     osc.Init(hw.seed.AudioSampleRate());
     osc.SetAmp(.2f);

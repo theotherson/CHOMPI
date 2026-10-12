@@ -239,6 +239,19 @@ namespace daisy
 
         inline size_t BounceDest() const { return bounce_dest_; }
 
+        /** PORTA sampler bake: play from the window's start at the set speed, no ramp from a stop */
+        void PlayFromStart()
+        {
+            for(auto& layer : Layers())
+            {
+                layer.JumpToStart();
+                layer.ForceSetScrub(layer.GetVarispeed());
+            }
+            playing = true;
+            play_target = false;
+        }
+        inline uint32_t MasterTell() { return Master().GetReadTell(); }
+
         /** PORTA sampler: start a take now (the first, or an overdub) / stop it and keep playing */
         void StartTake()
         {

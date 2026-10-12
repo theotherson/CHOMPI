@@ -219,6 +219,7 @@ namespace daisy
 
             /* PORTA sampler: the same looper, one layer, on the sample buffer the keys play */
             sampler_.Init(samplerate, chompi_buff, tape_slew, 1);
+            sampler_buff_ = chompi_buff;
 
             /** Final output compressors */
             lim_hp_l_.Init();
@@ -269,6 +270,35 @@ namespace daisy
                 const int16_t sum_r = f2s16(gain * .4f * tri_r * envelope);
                 chompi_writer.StereoWrite(sum_l, sum_r, false, true);
             }
+        }
+
+        /** one block of a bake: only the sample, through the FX, into the bake buffer. The 4TRACK looper
+         *  keeps time silently. It ends when the sample wraps to its start, or the buffer is full. */
+        void BakeBlock(float** out, size_t size)
+        {
+            float quiet[2][size];
+            std::fill(&quiet[0][0], &quiet[1][size], 0.f);
+            looper.Process(quiet[0], quiet[1], size);
+
+            std::fill(out[0], out[0] + size, 0.f);
+            std::fill(out[1], out[1] + size, 0.f);
+            sampler_.Process(out[0], out[1], size);
+            ApplyFx(out[0], out[1], size);
+
+            for(size_t i = 0; i < size && bake_len_ + 2 <= bake_cap_; i++)
+            {
+                bake_mem_[bake_len_++] = f2s16(out[0][i]);
+                bake_mem_[bake_len_++] = f2s16(out[1][i]);
+            }
+
+            const uint32_t tell = sampler_.MasterTell();
+            if(tell < bake_tell_ || bake_len_ + 2 > bake_cap_)
+            {
+                sampler_.TogglePlaying(); // stop
+                baking_ = false;
+                bake_done_ = true;
+            }
+            bake_tell_ = tell;
         }
 
         void ApplyFx(float* outl, float* outr, size_t size)
@@ -482,14 +512,19 @@ namespace daisy
             if(looper.CheckReset())
                 looper_reset = true;
 
-            //fx_xfade_pre
-            if(fx_pre_loop)
-                ApplyFx(out[0], out[1], size);
+            if(baking_)
+                BakeBlock(out, size);
+            else
+            {
+                //fx_xfade_pre
+                if(fx_pre_loop)
+                    ApplyFx(out[0], out[1], size);
 
-            looper.Process(out[0], out[1], size);
+                looper.Process(out[0], out[1], size);
 
-            if(!fx_pre_loop)
-                ApplyFx(out[0], out[1], size);
+                if(!fx_pre_loop)
+                    ApplyFx(out[0], out[1], size);
+            }
 
             if(fx_env_ < .01f)
             {
@@ -552,7 +587,8 @@ namespace daisy
             }
             sampler_.CheckRecordReady();
             sampler_.CheckReset(); // clears its reset flag once the delete has faded out
-            sampler_.Process(monitor[0], monitor[1], out[0], out[1], size);
+            if(!baking_) // a bake played it already, through the FX
+                sampler_.Process(monitor[0], monitor[1], out[0], out[1], size);
 
             /** voice write (TAPE's recorder; PORTA's sampler page uses the sample looper above) */
             if (record)
@@ -1425,6 +1461,46 @@ namespace daisy
             UseSamplerSample();
         }
 
+        /** PORTA sampler bake: the sample plays once from start to end (fractions of it, the keys' trim),
+         *  alone, through the FX, into the bake buffer; then SamplerAdoptBake puts that in its place. */
+        void SetBakeMemory(int16_t* mem, size_t capacity)
+        {
+            bake_mem_ = mem;
+            bake_cap_ = capacity;
+        }
+        bool SamplerBake(float start, float end)
+        {
+            if(baking_ || bake_done_ || !bake_mem_ || sampler_.GetIsEmpty() || sampler_.IsRecording())
+                return false;
+            sampler_wait_ = 0.f;
+            StopAllVoices();
+            sampler_.SetWindow(start, end);
+            sampler_.PlayFromStart();
+            bake_len_  = 0;
+            bake_tell_ = sampler_.MasterTell();
+            __DMB(); // the audio thread sees the bake set up before it starts
+            baking_ = true;
+            return true;
+        }
+        inline bool SamplerBaking() const { return baking_; }
+
+        // UI: a bake finished, once
+        bool TakeBakeDone()
+        {
+            if(!bake_done_)
+                return false;
+            bake_done_ = false;
+            return true;
+        }
+
+        void SamplerAdoptBake()
+        {
+            StopAllVoices();
+            std::copy(bake_mem_, bake_mem_ + bake_len_, sampler_buff_->mem);
+            sampler_buff_->length = bake_len_;
+            SamplerAdoptBuffer();
+        }
+
         /** a first take just finished: the keys play it, as TAPE's StopRecording set them up */
         void UseSamplerSample()
         {
@@ -1694,6 +1770,12 @@ namespace daisy
         /** the looper */
         LooperEngine looper;
         LooperEngine sampler_; // PORTA: the sampler page's sample looper, one layer
+        RamBufferMemory* sampler_buff_ = nullptr;
+        int16_t* bake_mem_ = nullptr;
+        size_t bake_cap_ = 0;
+        volatile size_t bake_len_ = 0;
+        uint32_t bake_tell_ = 0;
+        volatile bool baking_ = false, bake_done_ = false;
         volatile float sampler_wait_ = 0.f;
         size_t sampler_wait_age_ = 0;
 
