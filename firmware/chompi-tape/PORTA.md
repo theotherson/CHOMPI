@@ -313,7 +313,8 @@ Sampler-page recordings go through the 55 s buffer, so they're capped at 55 s.
 
 ### Code and data (512 KB AXI SRAM)
 
-After the groundwork (below): code about 56 KB free, data about 10 KB free.
+As of 2026-10-12: code 239 of 320 KB, data 115 of 192 KB (about 80 KB free in each). The voices' SD
+read-ahead (7 × 16 KB) lives in SDRAM; the sample buffer is 10 s. SDRAM: ~44.7 of 64 MB.
 
 ---
 
