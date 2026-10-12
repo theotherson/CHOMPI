@@ -32,6 +32,9 @@ chompi::InterpolatedDelayLine::AudioSample DSY_SDRAM_BSS del_mem[kMaxDelayTime];
 // PORTA: the looper's layers, 55 s each
 RamBufferMemory loop_buff[kNumLayers];
 int16_t DSY_SDRAM_BSS loop_mem[kNumLayers][kMaxRamBuffSize];
+// PORTA 4TRACK: the loop buffer the loop and play keys record and play, 55 s like a track
+RamBufferMemory loop_play_buff;
+int16_t DSY_SDRAM_BSS loop_play_mem[kMaxRamBuffSize];
 
 RamBufferMemory chompi_buff;
 // the threshold's pre-roll lives behind the buffer, 8K keeps the next one aligned
@@ -401,9 +404,10 @@ int main(void)
 
     for(size_t l = 0; l < kNumLayers; l++)
         loop_buff[l].Init(&loop_mem[l][0]);
+    loop_play_buff.Init(&loop_play_mem[0]);
     chompi_buff.Init(&chompi_mem[0], kMaxSampleSize);
     engine.Init(hw.seed.AudioSampleRate(), &reverb, &del_mem[0], 
-                loop_buff, &chompi_buff, 
+                loop_buff, &loop_play_buff, &chompi_buff, 
                 options.record_latch, options.tape_slew_on,
                 MonitorMode(options.monitor_position));
 
@@ -448,7 +452,7 @@ int main(void)
     daisy::System::Delay(1); // Wait a sec
     hw.usb_sw.Write(true);     // take USB control
     
-    copier.Init(hw.seed.AudioSampleRate(), &engine, &chompi_buff, &loop_buff[0]); // looper files are layer 1
+    copier.Init(hw.seed.AudioSampleRate(), &engine, &chompi_buff, &loop_play_buff); // looper files are the loop buffer
     // PORTA: the sample buffer starts empty, silent until a sample is loaded or recorded (TAPE put a
     // default tone in it here)
 

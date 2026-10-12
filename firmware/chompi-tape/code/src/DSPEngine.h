@@ -149,7 +149,8 @@ namespace daisy
             float samplerate, 
             daisysp::Reverb* reverb, 
             chompi::InterpolatedDelayLine::AudioSample* del,
-            RamBufferMemory* loop_buff, // kNumLayers of them
+            RamBufferMemory* loop_buff, // kNumLayers of them: the tracks
+            RamBufferMemory* loop_play_buff, // the loop buffer
             RamBufferMemory* chompi_buff,
             bool latch,
             bool tape_slew,
@@ -224,7 +225,9 @@ namespace daisy
             SetVoiceSlot(15, true);
 
             /* looper */
-            looper.Init(samplerate, loop_buff, tape_slew);
+            loop_.Init(samplerate, loop_play_buff, tape_slew, 1);
+            tracks_.Init(samplerate, loop_buff, tape_slew);
+            tracks_.SetDubGain(1.f); // printing again adds on top
 
             /* PORTA sampler: the same looper, one layer, on the sample buffer the keys play */
             sampler_.Init(samplerate, chompi_buff, tape_slew, 1);
@@ -287,7 +290,8 @@ namespace daisy
         {
             float quiet[2][size];
             std::fill(&quiet[0][0], &quiet[1][size], 0.f);
-            looper.Process(quiet[0], quiet[1], size);
+            loop_.Process(quiet[0], quiet[1], size);
+            tracks_.Process(quiet[0], quiet[1], size);
 
             std::fill(out[0], out[0] + size, 0.f);
             std::fill(out[1], out[1] + size, 0.f);
@@ -537,15 +541,18 @@ namespace daisy
                 else if(GetVUSample(VUTarget::VU_INPUT) >= looper_wait_)
                 {
                     looper_wait_ = 0.f;
-                    if(!looper.IsRecording())
-                        looper.ToggleRecord();
+                    if(!loop_.IsRecording())
+                        loop_.ToggleRecord();
                 }
             }
 
             /** looper read + write */
-            looper.CheckRecordReady();
-            if(looper.CheckReset())
+            loop_.CheckRecordReady();
+            if(loop_.CheckReset())
                 looper_reset = true;
+            tracks_.CheckRecordReady();
+            tracks_.CheckReset(); // clears its reset once a delete has faded out
+            TracksFollowLoop();
 
             if(baking_)
                 BakeBlock(out, size);
@@ -566,7 +573,8 @@ namespace daisy
                 if(!sampler_.IsRecording())
                     sampler_.SetDubGain(1.f);
                 sampler_.Process(fx_in[0], fx_in[1], out[0], out[1], size);
-                looper.Process(out[0], out[1], size);
+                loop_.Process(out[0], out[1], size);
+                tracks_.Process(out[0], out[1], size);
             }
             else
             {
@@ -584,10 +592,13 @@ namespace daisy
                 if(fx_pre_loop)
                     ApplyFx(out[0], out[1], size);
 
-                looper.Process(out[0], out[1], size);
+                loop_.Process(out[0], out[1], size);
 
                 if(!fx_pre_loop)
                     ApplyFx(out[0], out[1], size);
+
+                // the tracks print what's heard so far and add themselves after it
+                tracks_.Process(out[0], out[1], size);
             }
 
             if(fx_env_ < .01f)
@@ -740,12 +751,13 @@ namespace daisy
         void StopLooperRecording() __attribute__((noinline))
         {
             /** if the looper is overdubbing, stop it */
-            if(looper.IsRecording())
-                looper.ToggleRecord();
+            if(loop_.IsRecording())
+                loop_.ToggleRecord();
 
             /** if it was the first recording, stop it overdubbing :\ */
-            if(looper.IsRecording())
-                looper.ToggleRecord();
+            if(loop_.IsRecording())
+                loop_.ToggleRecord();
+            StopPrint();
         }
 
         /** threshold 0 starts now; above it, the recording waits for the input to cross it, keeping a
@@ -1423,17 +1435,28 @@ namespace daisy
         
         }
 
-        inline bool GetLooperRecordArm() { return looper.GetRecordArm(); }
-        inline bool GetLooperIsEmpty() { return looper.GetIsEmpty(); }
-        inline float GetLooperPosition() { return looper.GetPosition(); }
-        inline float GetLooperPitch() { return looper.GetPitch(); }
+        inline bool GetLooperRecordArm() { return loop_.GetRecordArm(); }
+        inline bool GetLooperIsEmpty() { return loop_.GetIsEmpty(); }
+        inline float GetLooperPosition() { return loop_.GetPosition(); }
+        inline float GetLooperPitch() { return loop_.GetPitch(); }
 
-        inline void LooperRecordButton(bool rising) { looper.RecordButton(rising); }
-        inline void LooperPlayButton(bool rising) { looper.PlayButton(rising); }
+        inline void LooperRecordButton(bool rising) { loop_.RecordButton(rising); }
+        inline void LooperPlayButton(bool rising)
+        {
+            if(!rising) // the release goes to both, whichever saw the press acts on it
+            {
+                loop_.PlayButton(false);
+                tracks_.PlayButton(false);
+            }
+            else if(loop_.GetIsEmpty())
+                tracks_.PlayButton(true);
+            else
+                loop_.PlayButton(true);
+        }
 
-        inline void ToggleLooperRecord() { looper.ToggleRecord(); }
-        inline void ToggleLooperPlaying() { looper.TogglePlaying(); }
-        inline bool GetLooperReverse() { return looper.GetReverse(); }
+        inline void ToggleLooperRecord() { loop_.ToggleRecord(); }
+        inline void ToggleLooperPlaying() { loop_.TogglePlaying(); }
+        inline bool GetLooperReverse() { return loop_.GetReverse(); }
 
         void ResetLooperPitchQuant()
         {
@@ -1445,7 +1468,7 @@ namespace daisy
         {
             if(!IsLooperPlaying())
                 return enc_pos;
-            return StepPitch(looper, looper_fifth, looper_encoder_chunk, turns, enc_pos);
+            return StepPitch(loop_, looper_fifth, looper_encoder_chunk, turns, enc_pos);
         }
 
         /** PORTA sampler page: CHOMPI + wheel steps the sample loop's speed, as the looper's */
@@ -1526,9 +1549,9 @@ namespace daisy
             SetLooperPitch(val * 4.f - 2.f); // -2 - 2            
         }
 
-        inline void SetLooperPitch(float val) { looper.SetPitch(val); }
-        inline void SetLooperScrub(float scrub) { looper.SetScrub(scrub); }
-        inline float GetLooperScrub() { return looper.GetScrub(); }
+        inline void SetLooperPitch(float val) { loop_.SetPitch(val); }
+        inline void SetLooperScrub(float scrub) { loop_.SetScrub(scrub); }
+        inline float GetLooperScrub() { return loop_.GetScrub(); }
 
         bool AnyVoicesPlaying() 
         {
@@ -1541,48 +1564,79 @@ namespace daisy
             return false;
         }
 
-        inline bool IsLooperPlaying() { return looper.IsPlaying(); };
-        inline bool IsLooperRecording() { return looper.IsRecording(); };
-        inline bool IsLooperFirstRecording() { return looper.IsFirstRecording(); };
-        inline bool IsLooperRecordArmed() { return looper.GetRecordArm(); };
+        inline bool IsLooperPlaying() { return loop_.IsPlaying(); };
+        inline bool IsLooperRecording() { return loop_.IsRecording(); };
+        inline bool IsLooperFirstRecording() { return loop_.IsFirstRecording(); };
+        inline bool IsLooperRecordArmed() { return loop_.GetRecordArm(); };
 
         inline bool GetRecordLatch() { return record_latch; }
 
-        inline void IncrementLooperDubGain(float gain) { looper.IncrementDubGain(gain); }
-        inline float GetLooperDubGain() { return looper.GetDubGain(); }
+        inline void IncrementLooperDubGain(float gain) { loop_.IncrementDubGain(gain); }
+        inline float GetLooperDubGain() { return loop_.GetDubGain(); }
 
-        inline void LooperOpenFile() { looper.OpenFile(); }
+        inline void LooperOpenFile() { loop_.OpenFile(); }
 
-        /** PORTA looper layers */
-        inline size_t GetLooperLayer() { return looper.ActiveLayer(); }
-        inline void SetLooperLayer(size_t layer) { looper.SetActiveLayer(layer); }
-        inline bool IsLooperLayerFilled(size_t layer) { return looper.LayerFilled(layer); }
-        inline bool IsLooperLayerReady(size_t layer) { return looper.LayerReady(layer); }
+        /** PORTA 4TRACK tracks (the looper's layers before the loop buffer came) */
+        /** hold a track in the picker: it prints what plays, from now (a first print sets the tracks' length,
+         *  another adds on top) until it's tapped again or the loop buffer stops */
+        void PrintTrack(size_t track)
+        {
+            if(tracks_.IsRecording() || tracks_.IsBouncing())
+                return;
+            tracks_.SetActiveLayer(track);
+            if(tracks_.ActiveLayer() == track)
+                tracks_.StartTake();
+        }
+        void StopPrint() { tracks_.StopTake(); }
+        inline bool IsPrinting() { return tracks_.IsRecording(); }
+        inline bool IsFirstPrint() { return tracks_.IsFirstRecording(); }
+        inline bool TracksEmpty() { return tracks_.GetIsEmpty(); }
+        inline bool TracksPlaying() { return tracks_.IsPlaying(); }
+        inline float TracksPosition() { return tracks_.GetPosition(); } // 0-1 through the tracks' length
+
+        /** the tracks play while the loop buffer does; with it empty, the play key runs them. A print stops
+         *  when the loop buffer stops. */
+        void TracksFollowLoop()
+        {
+            const bool playing = loop_.IsPlaying();
+            if(!loop_.GetIsEmpty() && playing != loop_was_playing_)
+            {
+                if(!playing)
+                    StopPrint();
+                tracks_.SetPlaying(playing);
+            }
+            loop_was_playing_ = playing;
+        }
+        inline size_t GetLooperLayer() { return tracks_.ActiveLayer(); }
+        inline void SetLooperLayer(size_t layer) { tracks_.SetActiveLayer(layer); }
+        inline bool IsLooperLayerFilled(size_t layer) { return tracks_.LayerFilled(layer); }
+        inline bool IsLooperLayerReady(size_t layer) { return tracks_.LayerReady(layer); }
         inline void ServiceLooper() // SD timer
         {
-            looper.ServiceClears();
+            loop_.ServiceClears();
+            tracks_.ServiceClears();
             sampler_.ServiceClears();
         }
-        inline void SetLooperWindow(float start, float end) { looper.SetWindow(start, end); }
+        inline void SetLooperWindow(float start, float end) { loop_.SetWindow(start, end); }
         inline bool BounceLooperInto(size_t layer, uint8_t sources, bool merge)
         {
-            return looper.BounceInto(layer, sources, merge);
+            return tracks_.BounceInto(layer, sources, merge);
         }
-        inline bool IsLooperBouncing() const { return looper.IsBouncing(); }
-        inline size_t LooperBounceDest() const { return looper.BounceDest(); }
-        inline void ToggleLooperMute(size_t layer) { looper.ToggleMute(layer); }
-        inline void ClearLooperLayers(uint8_t mask) { looper.ClearLayers(mask); }
-        inline bool IsLooperLayerMuted(size_t layer) const { return looper.Muted(layer); }
-        inline void SetLooperAudition(int layer) { looper.SetAudition(layer); } // -1: none
-        inline int GetLooperAudition() const { return looper.Audition(); }
+        inline bool IsLooperBouncing() const { return tracks_.IsBouncing(); }
+        inline size_t LooperBounceDest() const { return tracks_.BounceDest(); }
+        inline void ToggleLooperMute(size_t layer) { tracks_.ToggleMute(layer); }
+        inline void ClearLooperLayers(uint8_t mask) { tracks_.ClearLayers(mask); }
+        inline bool IsLooperLayerMuted(size_t layer) const { return tracks_.Muted(layer); }
+        inline void SetLooperAudition(int layer) { tracks_.SetAudition(layer); } // -1: none
+        inline int GetLooperAudition() const { return tracks_.Audition(); }
 
         /** arm the looper: it starts recording (first take or overdub) when the input crosses threshold */
         void ArmLooper(float threshold)
         {
             if(threshold <= 0.f)
             {
-                if(!looper.IsRecording())
-                    looper.ToggleRecord();
+                if(!loop_.IsRecording())
+                    loop_.ToggleRecord();
                 return;
             }
             looper_wait_age_ = 0;
@@ -1961,7 +2015,7 @@ namespace daisy
         {
             if(pre != fx_pre_loop)
             {
-                looper.FXEnvelope();
+                loop_.FXEnvelope();
                 fx_env_target_ = 0.f;
             }
         }
@@ -1992,8 +2046,11 @@ namespace daisy
          */
         float MidiNoteToPlaybackRatio(int nn) { return pow(2.f, nn * 0.08333333f); } // .0833 = 1/12
 
-        /** the looper */
-        LooperEngine looper;
+        /** PORTA 4TRACK: the loop buffer (the loop and play keys, TAPE's looper) and the four tracks, which
+         *  print the mix after the FX (the loop buffer, keys and input; not each other) while armed */
+        LooperEngine loop_;
+        LooperEngine tracks_;
+        bool loop_was_playing_ = false;
         LooperEngine sampler_; // PORTA: the sampler page's sample looper, one layer
         RamBufferMemory* sampler_buff_ = nullptr;
         bool key_restore_play_ = false; // the loop was playing before the top key played it

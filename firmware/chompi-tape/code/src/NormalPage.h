@@ -535,6 +535,14 @@ namespace chompi
                 else
                     r = g = b = .3f * position;
             }
+            else if(fx_->GetLooperIsEmpty() && !fx_->IsLooperRecordArmed() && !fx_->TracksEmpty())
+            {
+                // PORTA: no loop, the play key runs the tracks: teal while they play, dim while stopped
+                const float v = fx_->TracksPlaying() ? 1.f : .3f;
+                r = teal[0] * v;
+                g = teal[1] * v;
+                b = teal[2] * v;
+            }
             else if(fx_->GetLooperIsEmpty() && !fx_->IsLooperRecordArmed())
             {
                 r = g = b = 0.f;

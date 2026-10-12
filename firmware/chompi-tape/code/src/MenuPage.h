@@ -1050,6 +1050,28 @@ namespace chompi
 
             case static_cast<uint16_t>(Hardware::SwId::KEY_24): // copy
             {
+                // PORTA track picker: copy held picks a bounce on the tracks; letting go does it, into the
+                // last track tapped (CHOMPI held: merging into what's there, else replacing it)
+                if(latch_ == Latch::LAYERS && OnLoopPage() && preset_mode == PresetMode::NONE)
+                {
+                    if(rising)
+                    {
+                        copy_held_ = true;
+                        source_mask_ = 0;
+                        bounce_last_ = -1;
+                    }
+                    else
+                    {
+                        if(bounce_last_ >= 0 && (source_mask_ & ~(1 << bounce_last_)))
+                            fx_->BounceLooperInto(bounce_last_, source_mask_ & ~(1 << bounce_last_),
+                                                  chompi_key_pressed);
+                        copy_held_ = false;
+                        source_mask_ = 0;
+                        bounce_last_ = -1;
+                    }
+                    break;
+                }
+
                 if(rising && !no_sd_card_)
                 {                    
                     if(preset_mode == PresetMode::NONE)
@@ -1226,12 +1248,12 @@ namespace chompi
 
                 if(latch_ == Latch::LAYERS && OnLoopPage() && preset_mode == PresetMode::NONE)
                 {
-                    // the layer picker. Tap a layer: on / off. Hold layers ~0.5 s: they blink orange as bounce
-                    // sources, and stay so; tapping a source takes it back out, tapping another layer bounces
-                    // them into it, replacing what's there (with CHOMPI: merging). CHOMPI + tap a layer: select
-                    // it, ending any audition. CHOMPI + hold it 2 s: audition it (only it plays) until CHOMPI
-                    // comes up or, played from a stop, it reaches its end.
-                    // Other white keys: nothing.
+                    // the track picker. Hold a track ~0.5 s: it prints ("listening", flashing red) what plays,
+                    // until it's tapped again or the loop buffer stops. Tap a track: on / off (a printing one:
+                    // stop). With copy held, taps pick a bounce: the sources (orange), then the destination last,
+                    // done when copy comes up (with CHOMPI: merging). CHOMPI + tap a track: select it, ending any
+                    // audition. CHOMPI + hold it 2 s: audition it (only it plays) until CHOMPI comes up or, played
+                    // from a stop, it reaches its end. Other white keys: nothing.
                     const size_t key = KeyToSlot(buttonID);
                     if(track_erase_) // picking tracks to delete: a tap toggles one
                     {
@@ -1244,9 +1266,14 @@ namespace chompi
                     if(key >= 1 && key <= kNumLayers)
                     {
                         const uint8_t bit = 1 << (key - 1);
-                        if(rising)
+                        if(rising && copy_held_) // picking a bounce: the last one tapped is the destination
                         {
-                            if(chompi_key_pressed && !source_mask_)
+                            source_mask_ |= bit;
+                            bounce_last_ = int(key - 1);
+                        }
+                        else if(rising)
+                        {
+                            if(chompi_key_pressed)
                             {
                                 held_layer_ = int(key - 1);
                                 held_since_ = System::GetNow();
@@ -1271,21 +1298,17 @@ namespace chompi
                         }
                         else if(held_mask_ & bit)
                         {
-                            // decided on release. Held long enough: it stays a source (latched, orange).
-                            // A tap on a source takes it back out; a tap on another layer while there are
-                            // sources is the bounce's destination (merging with CHOMPI held); otherwise a
-                            // tap is on / off.
-                            const bool tap = System::GetNow() - press_time_[key - 1] < kSourceHoldMs;
-                            if(tap && (source_mask_ & bit))
-                                source_mask_ &= ~bit;
-                            else if(tap && source_mask_)
+                            // decided on release: a hold already started its print (DrawLayerView); a tap
+                            // stops a printing track, or else turns it on / off
+                            if(!(print_fired_ & bit))
                             {
-                                fx_->BounceLooperInto(key - 1, source_mask_, chompi_key_pressed);
-                                source_mask_ = 0;
+                                if(fx_->IsPrinting() && fx_->GetLooperLayer() == key - 1)
+                                    fx_->StopPrint();
+                                else
+                                    fx_->ToggleLooperMute(key - 1);
                             }
-                            else if(tap)
-                                fx_->ToggleLooperMute(key - 1);
                             held_mask_ &= ~bit;
+                            print_fired_ &= ~bit;
                         }
                     }
                     if(!rising && key == kSlotNone)
@@ -1384,7 +1407,7 @@ namespace chompi
             SetLatch(open_unshifted_ ? Latch::SAMPLER : Latch::NONE);
             open_unshifted_ = false;
             held_layer_ = -1;
-            held_mask_ = source_mask_ = 0;
+            held_mask_ = print_fired_ = source_mask_ = 0;
             track_erase_ = false;
             erase_mask_ = 0;
 
@@ -1478,6 +1501,8 @@ namespace chompi
             {
                 fx_->SetLooperAudition(-1);
                 source_mask_ = 0;
+                copy_held_ = false;
+                bounce_last_ = -1;
                 track_erase_ = false;
                 erase_mask_ = 0;
             }
@@ -1563,9 +1588,12 @@ namespace chompi
                 return;
 
             const uint32_t now = System::GetNow();
-            for(size_t l = 0; l < kNumLayers; l++) // held long enough: a bounce source
-                if((held_mask_ & (1 << l)) && now - press_time_[l] >= kSourceHoldMs)
-                    source_mask_ |= 1 << l;
+            for(size_t l = 0; l < kNumLayers; l++) // held long enough: it prints
+                if((held_mask_ & (1 << l)) && !(print_fired_ & (1 << l)) && now - press_time_[l] >= kPrintHoldMs)
+                {
+                    print_fired_ |= 1 << l;
+                    fx_->PrintTrack(l);
+                }
             if(held_layer_ >= 0 && !arm_fired_ && now - held_since_ >= kAuditionHoldMs)
             {
                 fx_->SetLooperAudition(held_layer_); // until CHOMPI comes up, or it ends
@@ -1652,13 +1680,16 @@ namespace chompi
         uint32_t held_since_ = 0;
         bool arm_fired_ = false;           // its 2 s hold toggled the audition
         static constexpr uint32_t kAuditionHoldMs = 2000;
-        // layer picker: layers held without CHOMPI, and those held long enough to be bounce sources
-        uint8_t held_mask_ = 0, source_mask_ = 0;
+        // track picker: tracks held without CHOMPI (and those whose hold started a print), and a bounce's
+        // picks while copy is held (the last one is the destination)
+        uint8_t held_mask_ = 0, print_fired_ = 0, source_mask_ = 0;
+        bool copy_held_ = false;
+        int bounce_last_ = -1;
         bool track_erase_ = false;         // erase pressed in the track picker: picking tracks to delete
         uint8_t erase_mask_ = 0;
         uint32_t deleted_at_ = 0;
         uint32_t press_time_[kNumLayers] = {};
-        static constexpr uint32_t kSourceHoldMs = 500;
+        static constexpr uint32_t kPrintHoldMs = 500;
         bool blink_state = true;
         uint32_t blink_startt;
         uint32_t last_blink;

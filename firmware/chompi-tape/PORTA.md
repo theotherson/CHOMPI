@@ -258,43 +258,48 @@ Get recording, layers and printing working first, then slicing.
 
 ---
 
-### Layer view
+### Track view (built 2026-10-12, replaces the layer view)
 
-CHOMPI + G# on the loop page opens it, and it **stays open** (the CHOMPI menu latched):
-- black keys keep their menu functions; G# again closes it (so does leaving the loop page);
-- white keys 1–4 are the layers, 5–15 do nothing;
+The 4TRACK page is now a **loop buffer** plus **four tracks**:
+- **Loop buffer:** the loop and play keys, as TAPE's looper (55 s). The loop key arms it when stopped (the next
+  note or loop press starts the take), CHOMPI + loop arms it on the threshold. Knobs 2/3 set its window, the
+  wheel its speed. Saving / loading the looper (slot 16) is the loop buffer.
+- **Tracks:** print what's heard after the FX (the loop buffer, live keys and input; not the other tracks).
+  The first print sets the tracks' length (one shared length for now; per-track lengths come with the length
+  view's baking). Printing again adds on top. The tracks play while the loop buffer plays, and stop with it;
+  with the loop buffer empty, the play key runs them.
+
+CHOMPI + G# opens the track view, and it **stays open** (G# again closes it):
+- white keys 1–4 are the tracks, 5–15 a **playhead** through the tracks' length, left to right, in the
+  selected track's colour;
 - knobs, their clicks, play and loop work as normal unless CHOMPI is held.
 
 | Gesture | Does |
 |---|---|
-| tap a layer key | turn it on / off (mute); off is nearly dark |
-| CHOMPI + tap a layer key | **select it** as the layer to record into (even if it already is), ending any audition |
-| CHOMPI + hold a layer key 2 s | audition it: only that layer plays (it pulses) **until CHOMPI is released**. With the looper stopped it plays once from the top, like auditioning a sample, then ends |
-| hold layer keys ~0.5 s | they blink orange as **bounce sources**, and stay so after they're let go |
-| tap an orange source | take it back out of the bounce |
-| tap another layer | **bounce** the sources into it, **replacing** what's on it (Portastudio's way) |
-| CHOMPI + tap another layer | bounce, **merging** with what's on it |
+| hold a track ~0.5 s | **arm it, "listening":** it prints what plays (flashing red) until it's tapped again, or the loop buffer stops |
+| tap a track | turn it on / off (mute); a printing track: stop printing |
+| CHOMPI + tap a track | **select it** (even if it already is), ending any audition |
+| CHOMPI + hold a track 2 s | audition it: only that track plays (it pulses) **until CHOMPI is released**. Stopped, it plays once from the top, then ends |
+| hold copy (upper G#), tap the sources, tap the destination last, let go of copy | **bounce** the sources into the destination, **replacing** what's on it; CHOMPI held when letting go **merges** |
+| erase, tap tracks, CHOMPI | delete those tracks |
 
-LEDs: green = the layer recorded into, white = recorded, dim = empty, dim red = being cleared, blinking orange =
-bounce source, flashing white = being bounced into. Arming is the loop key's (while stopped). Mutes aren't saved and reset with the looper.
+LEDs: tracks with content in their own colour (1 pink, 2 blue, 3 orange, 4 purple), selected = green,
+empty = dim white, being cleared = dim red, muted = blinking dimly, printing = flashing red, bounce picks =
+blinking white, being bounced into = flashing white, picked for deleting = magenta. Mutes aren't saved.
 
-### How the four layers work (draft)
+Open: a "print one pass of the loop buffer" gesture (the track's length = the loop's), suggested as an
+alternative to listening.
 
-- The first recording, on the selected layer, sets the loop length; that layer is the master.
-- The other layers take the master's length and position and play in step with it, each from its own buffer.
-- The loop key overdubs into the selected layer only; the output is all four summed.
-- Speed, direction and scrub move all layers together.
-- After a reset, the old layers are cleared in the background (well under a second). A layer being cleared is silent
-  and can't be recorded into.
-- Each layer takes unlimited overdubs, merged into that layer. Four is the number of *separate* layers
-  (memory: 4 × 55 s stereo).
-- **Bounce** (Portastudio style): in the layer picker, hold the source layers until they blink orange (they stay
-  orange; tap one to take it back out), then tap the destination (replace) or CHOMPI + tap it (merge). For
-  example: hold 2, hold 3, tap 4. Closing the picker drops the sources. The sources are
-  emptied, ready to record again; the destination comes out unmuted. Any combination works (1+2 into 2, 3+4
-  into 4, …). It takes about a third of a second, and the destination flashes white meanwhile. This replaces
-  adding more layers.
-- Not done yet: saving and loading the looper still covers layer 1 only; no projects yet.
+### How the four tracks work (draft)
+
+- The first print, on the selected track, sets the length; that track is the master. The others take its
+  length and position and play in step with it, each from its own buffer.
+- After a delete, a track is cleared in the background (well under a second); being cleared it's silent and
+  can't be printed into. Deleting the last track empties them, so the next print sets a new length.
+- **Bounce** (Portastudio style): the sources are emptied, ready to print again; the destination comes out
+  unmuted. It takes about a third of a second, and the destination flashes white meanwhile.
+- Memory: 4 tracks + the loop buffer, 55 s stereo each (about 57 of 64 MB SDRAM in use).
+- Not done yet: projects (saving and loading the four tracks).
 
 ---
 
