@@ -31,7 +31,9 @@ Items marked **(open)** are undecided.
   held, tap to arm (knob 1's threshold; with it off, records latched); recording: tap to stop and keep
   playing; with a sample: tap to overdub (latched) or hold to overdub while held; armed: tap to cancel. Play:
   play / pause the sample; play + loop held 2 s: delete. No replace: delete, then record again. Keys play the
-  sample at its own pitch. **(open)** The sample's playback isn't through knob 4's FX yet.
+  sample at its own pitch. The sample loop plays through knob 4's FX live (its input is recorded one block, 1 ms, late to allow it).
+**Overdubbing with the input on resample replaces** what's on the loop: it re-prints the loop as heard
+(FX, window, speed); mic / aux overdubs layer on top.
 - Kit capture: open the kit picker and arm; each threshold-crossing hit becomes a snapshot in the next slot
   (1…15) until loop is pressed; the filled slots blink, then save or delete the kit.
 - Toggle **up** is the sampler page (TAPE's record position), **down** the 4TRACK page.
@@ -183,9 +185,10 @@ Both pages share TAPE 2.0's knobs, except:
 | Knob | Sampler page | Loop page |
 |---|---|---|
 | 1 | Recording threshold (off fully left; LED white by level, red while the input is above it) | Pages: sample pitch, gain (TAPE), **overdub level** (red keeps nothing, green keeps it all) |
-| 2 / 3 | Sample start / end; they close in to granular windows (down to 10 ms) and step finer as they do | **Recorded loop's start / end**, all layers together |
+| 2 / 3 | **The sample loop's start / end**, live, down to 10 ms, finer as they close in (bake uses them) | **Recorded loop's start / end**, all layers together |
 | 4 | FX (TAPE) | FX (TAPE) |
-| Wheel, volume | TAPE | TAPE |
+| Wheel | **The sample loop's** speed while it plays, scrub while stopped | TAPE (the looper) |
+| Volume | TAPE | TAPE |
 
 The threshold is shared: the loop page's armed recording uses the value set on the sampler page.
 
