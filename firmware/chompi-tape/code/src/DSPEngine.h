@@ -1441,17 +1441,19 @@ namespace daisy
         inline float GetLooperPitch() { return loop_.GetPitch(); }
 
         inline void LooperRecordButton(bool rising) { loop_.RecordButton(rising); }
+        /** the play key is the loop buffer's, CHOMPI + play the tracks'. A release goes to both (CHOMPI may
+         *  have come up first), whichever saw the press acts on it. */
         inline void LooperPlayButton(bool rising)
         {
-            if(!rising) // the release goes to both, whichever saw the press acts on it
-            {
-                loop_.PlayButton(false);
+            if(!rising)
                 tracks_.PlayButton(false);
-            }
-            else if(loop_.GetIsEmpty() || (!loop_.IsPlaying() && tracks_.IsPlaying()))
-                tracks_.PlayButton(true); // no loop, or only the tracks playing: the key is theirs
-            else
-                loop_.PlayButton(true);
+            loop_.PlayButton(rising);
+        }
+        inline void TracksPlayButton(bool rising)
+        {
+            if(!rising)
+                loop_.PlayButton(false);
+            tracks_.PlayButton(rising);
         }
 
         inline void ToggleLooperRecord() { loop_.ToggleRecord(); }
@@ -1606,8 +1608,7 @@ namespace daisy
         inline bool TracksPlaying() { return tracks_.IsPlaying(); }
         inline float TracksPosition() { return tracks_.GetPosition(); } // 0-1 through the tracks' length
 
-        /** the tracks play while the loop buffer does; with it empty, or stopped while they play (after a
-         *  print), the play key runs them. A print stops when the loop buffer stops. */
+        /** the tracks have their own transport (CHOMPI + play); a print stops when the loop buffer stops */
         void TracksFollowLoop()
         {
             if(unarm_req_) // here, in the audio, so the loop stopping doesn't stop the tracks too
@@ -1620,12 +1621,8 @@ namespace daisy
                 return;
             }
             const bool playing = loop_.IsPlaying();
-            if(!loop_.GetIsEmpty() && playing != loop_was_playing_)
-            {
-                if(!playing)
-                    StopPrint();
-                tracks_.SetPlaying(playing);
-            }
+            if(!loop_.GetIsEmpty() && !playing && loop_was_playing_)
+                StopPrint();
             loop_was_playing_ = playing;
         }
         inline size_t GetLooperLayer() { return tracks_.ActiveLayer(); }

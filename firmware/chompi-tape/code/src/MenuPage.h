@@ -155,11 +155,23 @@ namespace chompi
                 SetPthLedFloat(7, gain, gain, gain);
                 SetPthLedFloat(8, gain, gain, gain);
 
-                if(!fx_->GetLooperIsEmpty())
+                // PORTA 4TRACK page: CHOMPI + play is the tracks' play / pause (teal playing, dim stopped), and
+                // the wheel shows their speed
+                const bool tracks = OnLoopPage() && !fx_->TracksEmpty();
+                if(tracks)
                 {
-                    float idx = enc_values[0][4] < .5f ? enc_values[0][4] * 2.f : (1.f - enc_values[0][4]) * 2.f; // 0 - 1 - 0
-                    int led_on = enc_values[0][4] > .5f ? 6 : 5;
-                    int led_off = enc_values[0][4] > .5f ? 5 : 6;
+                    const float v = fx_->TracksPlaying() ? 1.f : .25f;
+                    SetPthLedFloat(7, teal[0] * v, teal[1] * v, teal[2] * v);
+                }
+                else if(OnLoopPage())
+                    SetPthLedFloat(7, 0.f, 0.f, 0.f);
+
+                if(tracks || (!OnLoopPage() && !fx_->GetLooperIsEmpty()))
+                {
+                    const float pos = tracks ? fx_->TrackSpeed() : enc_values[0][4];
+                    float idx = pos < .5f ? pos * 2.f : (1.f - pos) * 2.f; // 0 - 1 - 0
+                    int led_on = pos > .5f ? 6 : 5;
+                    int led_off = pos > .5f ? 5 : 6;
 
                     r = color_quad_xfade(med_blue[0], green[0], yellow[0], red[0], idx);
                     g = color_quad_xfade(med_blue[1], green[1], yellow[1], red[1], idx);
@@ -1203,6 +1215,8 @@ namespace chompi
                 {
                     if(buttonID == 34 && rising)
                         ArmRecording();
+                    else if(buttonID == 33 && OnLoopPage()) // PORTA: CHOMPI + play, the tracks' play / pause
+                        fx_->TracksPlayButton(rising);
                     break;
                 }
 

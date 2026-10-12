@@ -466,16 +466,6 @@ namespace daisy
             }
         }
 
-        /** PORTA tracks: start or stop with the loop buffer */
-        void SetPlaying(bool on)
-        {
-            if(first_record)
-                return;
-            playing = on;
-            play_target = false;
-            audition_played_ = false;
-        }
-
         inline bool GetRecordArm() { return record_arm; }
         inline bool GetIsEmpty() { return !record && first_record; }
 

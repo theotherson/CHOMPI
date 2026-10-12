@@ -266,10 +266,10 @@ The 4TRACK page is now a **loop buffer** plus **four tracks**:
   wheel its speed. Saving / loading the looper (slot 16) is the loop buffer.
 - **Tracks:** print what's heard after the FX (the loop buffer, live keys and input; not the other tracks).
   The first print sets the tracks' length (one shared length for now; per-track lengths come with the length
-  view's baking). Printing again adds on top. The tracks play while the loop buffer plays, and stop with it;
-  with the loop buffer empty, the play key runs them. **Unarming a print (tapping the track) stops the loop
-  buffer and keeps the tracks playing**; the play key then stops the tracks, and the next press starts the
-  loop buffer (and the tracks with it) again.
+  view's baking). Printing again adds on top.
+- **Two transports:** play is the loop buffer's, **CHOMPI + play the tracks'** (with CHOMPI held the play LED
+  shows them: teal playing, dim stopped). **Unarming a print (tapping the track) stops the loop buffer and
+  starts the tracks playing**; the loop buffer stopping also ends a print.
 
 CHOMPI + G# opens the track view, and it **stays open** (G# again closes it):
 - white keys 1–4 are the tracks, 5–15 a **playhead** through the tracks' length, left to right, in the
