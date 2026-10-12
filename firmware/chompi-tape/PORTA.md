@@ -162,9 +162,10 @@ CHOMPI + G# on the loop page opens it, and it **stays open** (the CHOMPI menu la
 | tap a layer key | turn it on / off (mute); off is nearly dark |
 | CHOMPI + tap a layer key | **select it** as the layer to record into (even if it already is), ending any audition |
 | CHOMPI + hold a layer key 2 s | audition it: only that layer plays (it pulses), until held again, a CHOMPI + tap, or the picker closes |
-| hold layer keys ~0.5 s | they blink orange as **bounce sources** |
-| …then tap another layer | **bounce** the held sources into it, **replacing** what's on it (Portastudio's way) |
-| …then CHOMPI + tap another layer | bounce, **merging** with what's on it |
+| hold layer keys ~0.5 s | they blink orange as **bounce sources**, and stay so after they're let go |
+| tap an orange source | take it back out of the bounce |
+| tap another layer | **bounce** the sources into it, **replacing** what's on it (Portastudio's way) |
+| CHOMPI + tap another layer | bounce, **merging** with what's on it |
 
 LEDs: green = the layer recorded into, white = recorded, dim = empty, dim red = being cleared, blinking orange =
 bounce source, flashing white = being bounced into. Arming is the loop key's (while stopped). Mutes aren't saved and reset with the looper.
@@ -179,8 +180,9 @@ bounce source, flashing white = being bounced into. Arming is the loop key's (wh
   and can't be recorded into.
 - Each layer takes unlimited overdubs, merged into that layer. Four is the number of *separate* layers
   (memory: 4 × 55 s stereo).
-- **Bounce** (Portastudio style): in the layer picker, hold the source layers until they blink orange, then tap
-  the destination (replace) or CHOMPI + tap it (merge). For example: hold 2 and 3, tap 4. The sources are
+- **Bounce** (Portastudio style): in the layer picker, hold the source layers until they blink orange (they stay
+  orange; tap one to take it back out), then tap the destination (replace) or CHOMPI + tap it (merge). For
+  example: hold 2, hold 3, tap 4. Closing the picker drops the sources. The sources are
   emptied, ready to record again; the destination comes out unmuted. Any combination works (1+2 into 2, 3+4
   into 4, …). It takes about a third of a second, and the destination flashes white meanwhile. This replaces
   adding more layers.
