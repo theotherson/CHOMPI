@@ -1503,17 +1503,28 @@ namespace daisy
             SamplerAdoptBuffer();
         }
 
-        /** a first take just finished: the keys play it, as TAPE's StopRecording set them up */
+        /** the buffer has new audio: voices stop and pick it up next time they play slot 15. The mode, bank
+         *  and slot the player chose stay (TAPE's StopRecording switched to slot 15). */
         void UseSamplerSample()
         {
             for(size_t i = 0; i < kMaxPoly; i++)
             {
                 chompi_voice[i].RestoreDefaults();
                 chompi_voice[i].StopPlaying();
-                chompi_voice[i].CloseFile();
             }
-            SetVoiceMode(VoiceMode::JAMMI);
-            SetVoiceSlot(15, false);
+        }
+
+        /** the sampler page's top white key: the buffer from its top while held */
+        void SamplerKeyDown()
+        {
+            key_restore_play_ = sampler_.IsPlaying();
+            if(!sampler_.GetIsEmpty() && !sampler_.IsRecording() && !baking_)
+                sampler_.PlayFromStart();
+        }
+        void SamplerKeyUp()
+        {
+            if(!key_restore_play_ && sampler_.IsPlaying() && !sampler_.IsRecording())
+                sampler_.TogglePlaying();
         }
         inline void CancelLooperWait() { looper_wait_ = 0.f; }
 
@@ -1773,6 +1784,7 @@ namespace daisy
         LooperEngine looper;
         LooperEngine sampler_; // PORTA: the sampler page's sample looper, one layer
         RamBufferMemory* sampler_buff_ = nullptr;
+        bool key_restore_play_ = false; // the loop was playing before the top key played it
         int16_t* bake_mem_ = nullptr;
         size_t bake_cap_ = 0;
         volatile size_t bake_len_ = 0;

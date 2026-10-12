@@ -481,6 +481,9 @@ namespace chompi
 
             if(OnLoopPage())
                 DrawLayerView();
+            else if(latch_ == Latch::SAMPLER && preset_mode == PresetMode::NONE) // the top key: the buffer
+                SetSmtLedFloat(25 - 15, fx_->SamplerEmpty() ? 0.f : pink[0], fx_->SamplerEmpty() ? 0.f : pink[1],
+                               fx_->SamplerEmpty() ? 0.f : pink[2]);
         }
 
 
@@ -908,7 +911,7 @@ namespace chompi
                 // sampler page, picking loads it into the sample buffer to edit). The first press shows the
                 // current bank; only presses while it's open step to the next (TAPE stepped on every press).
                 const bool picker_was_open = latch_ == Latch::SAMPLES;
-                if(rising)
+                if(rising && OnLoopPage())
                     SetLatch(Latch::SAMPLES);
 
                 if(rising && !no_sd_card_)
@@ -919,7 +922,7 @@ namespace chompi
                     else
                         mode = VoiceMode::CUBBI;
 
-                    if(fx_->GetVoiceMode() == mode && !picker_was_open)
+                    if(fx_->GetVoiceMode() == mode && !picker_was_open && OnLoopPage())
                     {
                         // the picker opens on the bank already in use
                     }
@@ -1089,29 +1092,21 @@ namespace chompi
 
             // white keys and play/pause
             default:
-                // sampler page, CHOMPI up, not picking a slot: the white keys play the sample
+                // sampler page, CHOMPI up, not picking a slot to save to: white keys 1-14 are the bank's
+                // slots (tap to audition, hold 0.5 s to load into the buffer), the top one is the buffer
+                // (it plays from its top while held)
                 if(latch_ == Latch::SAMPLER && !chompi_key_pressed && preset_mode == PresetMode::NONE)
-                    return false;
-
-                // PORTA: CHOMPI + loop arms recording, which starts when the input crosses the threshold
-                // (knob 1 on the sampler page). Pressing it again, or loop alone, stops or cancels it.
-                // This was TAPE's overdub level (CHOMPI + play/loop), which has no control for now.
-                if((buttonID == 33 || buttonID == 34) && preset_mode == PresetMode::NONE)
                 {
-                    if(buttonID == 34 && rising)
-                        ArmRecording();
-                    break;
-                }
-
-                if(latch_ == Latch::SAMPLES && preset_mode == PresetMode::NONE)
-                {
-                    // the sample picker: a key picks the bank's sample (or, for one-shots, the kit) and
-                    // closes it, back to the normal keyboard. On the sampler page it loads that sample into
-                    // the sample buffer (cut at 10 s) to edit, and goes back to the sampler.
                     const size_t slot = KeyToSlot(buttonID);
-
-                    // sampler page: tap a slot to audition it, hold it 0.5 s to load it into the buffer
-                    if(!OnLoopPage() && slot != kSlotNone && !no_sd_card_)
+                    if(slot == 15)
+                    {
+                        if(rising)
+                            fx_->SamplerKeyDown();
+                        else
+                            fx_->SamplerKeyUp();
+                        break;
+                    }
+                    if(slot != kSlotNone && !no_sd_card_)
                     {
                         if(rising && fx_->GetFileExists(slot - 1))
                         {
@@ -1130,8 +1125,26 @@ namespace chompi
                         }
                         if(!rising)
                             return false; // the normal page stops it
-                        break;
                     }
+                    break;
+                }
+
+                // PORTA: CHOMPI + loop arms recording, which starts when the input crosses the threshold
+                // (knob 1 on the sampler page). Pressing it again, or loop alone, stops or cancels it.
+                // This was TAPE's overdub level (CHOMPI + play/loop), which has no control for now.
+                if((buttonID == 33 || buttonID == 34) && preset_mode == PresetMode::NONE)
+                {
+                    if(buttonID == 34 && rising)
+                        ArmRecording();
+                    break;
+                }
+
+                if(latch_ == Latch::SAMPLES && preset_mode == PresetMode::NONE)
+                {
+                    // the sample picker: a key picks the bank's sample (or, for one-shots, the kit) and
+                    // closes it, back to the normal keyboard. On the sampler page it loads that sample into
+                    // the sample buffer (cut at 10 s) to edit, and goes back to the sampler.
+                    const size_t slot = KeyToSlot(buttonID);
 
                     // CHOMPI + a slot auditions it, the picker stays open. One-shots play through the normal
                     // page; a chromatic sample is selected and played at its own pitch.
@@ -1402,11 +1415,8 @@ namespace chompi
         // open or close a picker; closing the layer picker ends an audition and drops bounce sources
         void SetLatch(Latch latch)
         {
-            if(latch_ == Latch::SAMPLES && latch != Latch::SAMPLES && !OnLoopPage() && fx_)
-            {
-                fx_->UseSamplerSample(); // auditions picked bank samples; the keys go back to the buffer
+            if(latch != Latch::SAMPLER)
                 pick_slot_ = kSlotNone;
-            }
             if(latch != Latch::LAYERS && fx_)
             {
                 fx_->SetLooperAudition(-1);
