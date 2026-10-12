@@ -90,10 +90,32 @@ so there the arp needs CHOMPI held.
   |---|---|---|---|---|---|---|---|
   | | off | sequence (order pressed) | up | down | ping-pong | random | TEMPO's rest patterns |
 
-### Encoders, wheel, play/loop keys
+### Knobs
 
-To start, both pages keep TAPE 2.0's behaviour for the six encoders, the wheel and the play/loop keys.
-They'll be revisited once the pages work on the hardware. The start/end knobs set the project's loop length.
+Both pages share TAPE 2.0's knobs, except:
+
+| Knob | Sampler page | Loop page |
+|---|---|---|
+| 1 | Recording threshold (off fully left; LED white by level, red while the input is above it) | Sample pitch (TAPE) |
+| 2 / 3 | Sample start / end (TAPE) | **Recorded loop's start / end**, all layers together |
+| 4 | FX (TAPE) | FX (TAPE) |
+| Wheel, volume | TAPE | TAPE |
+
+The threshold is shared: the loop page's armed recording uses the value set on the sampler page.
+
+### Recording
+
+| Gesture | Sampler page | Loop page |
+|---|---|---|
+| Loop | Record a sample now (held, or latched with TAPE's latch option) | Looper record, as TAPE |
+| CHOMPI + loop | **Arm:** recording starts when the input crosses the threshold | **Arm:** the first take or an overdub starts at the threshold |
+| Loop, or CHOMPI + loop, while armed/recording | Stop (or cancel; the old sample stays) | Cancel the arm |
+
+While armed the loop key blinks red. A sample recording keeps a ~6 ms pre-roll so the attack isn't lost
+(from MIXTAPE); the looper doesn't yet. The first ~100 ms after arming is ignored (key noise).
+
+**(open)** CHOMPI + loop/play was TAPE's overdub level; it has no control in PORTA yet.
+**(open)** Listening to one layer at a time (solo or mute).
 
 ---
 
