@@ -144,7 +144,7 @@ yellow overdub, dim white holding a sample.
 
 | Key | Function |
 |---|---|
-| low C# / D# | **Load a sample to edit:** the bank on the white keys (again to scroll banks); tap a slot to load it into the sample buffer (cut at 10 s); CHOMPI + slot auditions it. Kit capture comes here later |
+| low C# / D# | **Load a sample to edit:** the bank on the white keys (again to scroll banks); **tap a slot to audition it, hold it 0.5 s to load it** into the sample buffer (cut at 10 s). Kit capture comes here later |
 | low F# | **Bake (built):** plays the sample once from start to end (knobs 2/3), at the wheel's speed, alone through the FX, and replaces it with the result; then the FX knobs (and CHOMPI's resonance, warble, delay time) go neutral and the trim to the whole sample. Magenta with a sample, flashing while baking. Save stays separate: bake, listen, save |
 | low G# | Free |
 | low A# | Input type: cycles mic → aux → resample. Key LED colour shows which |
@@ -176,7 +176,7 @@ Both pages share TAPE 2.0's knobs, except:
 | Knob | Sampler page | Loop page |
 |---|---|---|
 | 1 | Recording threshold (off fully left; LED white by level, red while the input is above it) | Pages: sample pitch, gain (TAPE), **overdub level** (red keeps nothing, green keeps it all) |
-| 2 / 3 | Sample start / end (TAPE) | **Recorded loop's start / end**, all layers together |
+| 2 / 3 | Sample start / end; they close in to granular windows (down to 10 ms) and step finer as they do | **Recorded loop's start / end**, all layers together |
 | 4 | FX (TAPE) | FX (TAPE) |
 | Wheel, volume | TAPE | TAPE |
 
