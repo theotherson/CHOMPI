@@ -276,6 +276,12 @@ namespace daisy
                 layer.IncrementDubGain(gain, first_record && !record);
         }
         inline float GetDubGain() { return Master().GetDubGain(); }
+        // how much of what's there an overdub keeps, at once
+        void SetDubGain(float g)
+        {
+            for(auto& layer : Layers())
+                layer.SetDubGain(g);
+        }
 
         bool CheckReset()
         {
@@ -478,7 +484,7 @@ namespace daisy
             if(first_record)
                 return;
             const size_t len = mem_[master_]->length;
-            static constexpr size_t kMinWindow = 4800; // samples, 50 ms of stereo
+            static constexpr size_t kMinWindow = 960; // samples, 10 ms of stereo: granular, above a single cycle
             if(len < kMinWindow)
                 return;
             size_t s = static_cast<size_t>(daisysp::fclamp(start, 0.f, 1.f) * len) & ~size_t(1);

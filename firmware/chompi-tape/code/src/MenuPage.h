@@ -99,9 +99,7 @@ namespace chompi
             if(fx_->TakeBakeDone())
             {
                 fx_->SamplerAdoptBake();
-                ResetFxAfterBake();
-                enc_values[0][1] = enc_defaults[0][1]; // the trim is baked in
-                enc_values[0][2] = enc_defaults[0][2];
+                ResetFxAfterBake(); // the trim is baked in too: the window went back to the whole sample
             }
 
             if(loading_ && !copier_->IsCopying()) // a sample loaded into the buffer: the sampler takes it
@@ -955,7 +953,7 @@ namespace chompi
             case static_cast<uint16_t>(Hardware::SwId::KEY_18):
             {
                 if(rising && !OnLoopPage())
-                    fx_->SamplerBake(enc_values[0][1], enc_values[0][2]);
+                    fx_->SamplerBake(fx_->SamplerWindowStart(), fx_->SamplerWindowEnd());
                 else if(!rising)
                     return false; // note off falls through
                 break;

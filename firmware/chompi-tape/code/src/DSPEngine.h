@@ -516,6 +516,16 @@ namespace daisy
                 BakeBlock(out, size);
             else
             {
+                // PORTA sampler: the sample loop joins before the FX, so they shape it as it plays. Its input
+                // is the last block's (the input is only complete after the FX), a block late. Overdubbing
+                // the resampled output replaces what's there: that re-prints the loop as it's heard; any
+                // other input layers on top.
+                sampler_.CheckRecordReady();
+                sampler_.CheckReset(); // clears its reset flag once the delete has faded out
+                if(!sampler_.IsRecording())
+                    sampler_.SetDubGain(in_source == InputSource::RESAMPLE ? 0.f : 1.f);
+                sampler_.Process(sampler_in_[0], sampler_in_[1], out[0], out[1], size);
+
                 //fx_xfade_pre
                 if(fx_pre_loop)
                     ApplyFx(out[0], out[1], size);
@@ -585,10 +595,12 @@ namespace daisy
                     sampler_.StartTake();
                 }
             }
-            sampler_.CheckRecordReady();
-            sampler_.CheckReset(); // clears its reset flag once the delete has faded out
-            if(!baking_) // a bake played it already, through the FX
-                sampler_.Process(monitor[0], monitor[1], out[0], out[1], size);
+            // the sample loop records this next block (see above)
+            {
+                const size_t n = size < kSamplerBlock ? size : kSamplerBlock;
+                std::copy(monitor[0], monitor[0] + n, sampler_in_[0]);
+                std::copy(monitor[1], monitor[1] + n, sampler_in_[1]);
+            }
 
             /** voice write (TAPE's recorder; PORTA's sampler page uses the sample looper above) */
             if (record)
@@ -1421,7 +1433,16 @@ namespace daisy
         inline bool IsLooperWaiting() const { return looper_wait_ > 0.f; }
 
         /** PORTA sampler page: the sample looper (record, play, overdub the 10 s sample the keys play) */
-        inline void SamplerStartTake() { sampler_.StartTake(); }
+        void SamplerStartTake()
+        {
+            if(sampler_.GetIsEmpty())
+            {
+                sampler_win_s_ = 0.f;
+                sampler_win_e_ = 1.f;
+                SetSamplerSpeed(.75f);
+            }
+            sampler_.StartTake();
+        }
         inline void SamplerStopTake() { sampler_.StopTake(); }
         inline void SamplerTogglePlay() { sampler_.TogglePlaying(); }
         inline void SamplerPause()
@@ -1432,6 +1453,9 @@ namespace daisy
         void SamplerReset()
         {
             sampler_wait_ = 0.f;
+            sampler_win_s_ = 0.f;
+            sampler_win_e_ = 1.f;
+            sampler_speed_ = .75f; // OpenFile / the reset put it back to 1x
             sampler_.Reset();
         }
         // threshold 0 starts now
@@ -1453,11 +1477,33 @@ namespace daisy
         inline bool SamplerPlaying() { return sampler_.IsPlaying(); }
         inline float SamplerPosition() { return sampler_.GetPosition(); }
 
+        /** the sampler page's loop: the part of the buffer it plays (knobs 2/3), its speed and scrub (wheel) */
+        void SetSamplerWindow(float start, float end)
+        {
+            sampler_win_s_ = start;
+            sampler_win_e_ = end;
+            sampler_.SetWindow(start, end);
+        }
+        inline float SamplerWindowStart() const { return sampler_win_s_; }
+        inline float SamplerWindowEnd() const { return sampler_win_e_; }
+        // the wheel's position for the loop's speed, as the looper's: 0-1 is -2x to 2x, .75 is 1x
+        void SetSamplerSpeed(float val)
+        {
+            sampler_speed_ = daisysp::fclamp(val, 0.f, 1.f);
+            sampler_.SetPitch(sampler_speed_ * 4.f - 2.f);
+        }
+        inline float SamplerSpeed() const { return sampler_speed_; }
+        inline void SetSamplerScrub(float scrub) { sampler_.SetScrub(scrub); }
+        inline float GetSamplerScrub() { return sampler_.GetScrub(); }
+
         /** a sample was loaded (or baked) into the buffer: the sample looper takes it and plays it, looping,
          *  as a recording does once its take ends, and the keys take it too */
         void SamplerAdoptBuffer()
         {
             sampler_wait_ = 0.f;
+            sampler_win_s_ = 0.f; // the whole of it
+            sampler_win_e_ = 1.f;
+            sampler_speed_ = .75f; // OpenFile / the reset put it back to 1x
             sampler_.OpenFile();
             sampler_.PlayFromStart();
             UseSamplerSample();
@@ -1785,6 +1831,10 @@ namespace daisy
         LooperEngine sampler_; // PORTA: the sampler page's sample looper, one layer
         RamBufferMemory* sampler_buff_ = nullptr;
         bool key_restore_play_ = false; // the loop was playing before the top key played it
+        static constexpr size_t kSamplerBlock = 64; // audio blocks are 48 at most
+        float sampler_in_[2][kSamplerBlock] = {};   // the input the sample loop records, a block late
+        float sampler_win_s_ = 0.f, sampler_win_e_ = 1.f;
+        float sampler_speed_ = .75f;
         int16_t* bake_mem_ = nullptr;
         size_t bake_cap_ = 0;
         volatile size_t bake_len_ = 0;

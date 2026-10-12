@@ -318,10 +318,9 @@ namespace chompi
                 break;
                 case 1: // start point
                 {
-                    if (page == 0) // start point: the sample's, or the loop's on the loop page
+                    if (page == 0) // start point: the sample loop's, or the recorded loop's on the loop page
                     {
-                        if(!OnSamplerPage())
-                            value = loop_start_;
+                        value = OnSamplerPage() ? fx_->SamplerWindowStart() : loop_start_;
                         r = color_xfade(yellow[0], orange[0], value);
                         g = color_xfade(yellow[1], orange[1], value);
                         b = color_xfade(yellow[2], orange[2], value);
@@ -342,10 +341,9 @@ namespace chompi
                 }
                 case 2: // end point
                 {
-                    if (page == 0) // end point: the sample's, or the loop's on the loop page
+                    if (page == 0) // end point: the sample loop's, or the recorded loop's on the loop page
                     {
-                        if(!OnSamplerPage())
-                            value = loop_end_;
+                        value = OnSamplerPage() ? fx_->SamplerWindowEnd() : loop_end_;
                         r = color_xfade(orange[0], red[0], value);
                         g = color_xfade(orange[1], red[1], value);
                         b = color_xfade(orange[2], red[2], value);
@@ -410,14 +408,17 @@ namespace chompi
 
                     break;
                 }
-                case 4: // transport
+                case 4: // transport: the sample loop's on the sampler page
                 {                    
-                    if(fx_->GetLooperIsEmpty())
+                    const bool samp = OnSamplerPage();
+                    if(samp)
+                        value = fx_->SamplerSpeed();
+                    if(samp ? fx_->SamplerEmpty() : fx_->GetLooperIsEmpty())
                     {
                         SetPthLedFloat(5, 0.f, 0.f, 0.f);
                         SetPthLedFloat(6, 0.f, 0.f, 0.f);
                     }
-                    else if(fx_->IsLooperPlaying())
+                    else if(samp ? fx_->SamplerPlaying() : fx_->IsLooperPlaying())
                     {
                         float idx = value < .5f ? value * 2.f : (1.f - value) * 2.f; // 0 - 1 - 0
                         int led_on = value > .5f ? 6 : 5;
@@ -462,7 +463,7 @@ namespace chompi
                     }
                     else
                     {
-                        float scrub = fx_->GetLooperScrub() * .5f;
+                        float scrub = (samp ? fx_->GetSamplerScrub() : fx_->GetLooperScrub()) * .5f;
                         int led = 5 + (scrub > 0.f);
 
                         scrub = fabsf(scrub);
@@ -901,6 +902,29 @@ namespace chompi
                 return true;
             }
 
+            // PORTA sampler page: knobs 2 and 3 set the loop's start and end, finer as they close in
+            if((encoderID == 1 || encoderID == 2) && knob_page[encoderID] == 0 && OnSamplerPage()
+               && stepsPerRevolution == 0)
+            {
+                float s = fx_->SamplerWindowStart(), e = fx_->SamplerWindowEnd();
+                const float step = fclamp(.03f * (e - s), .0001f, kEncoderFineStep);
+                float& v = encoderID == 1 ? s : e;
+                v = fclamp(v + turns * step, 0.f, 1.f);
+                if(s + .0001f < e)
+                    fx_->SetSamplerWindow(s, e);
+                return true;
+            }
+
+            // PORTA sampler page: the wheel is the loop's speed while it plays, scrub while it doesn't
+            if(encoderID == 4 && OnSamplerPage() && stepsPerRevolution == 0)
+            {
+                if(fx_->SamplerPlaying())
+                    fx_->SetSamplerSpeed(fx_->SamplerSpeed() + turns * kEncoderFineStep);
+                else
+                    fx_->SetSamplerScrub(turns);
+                return true;
+            }
+
             // PORTA loop page: knob 1's third page is the overdub level, how much of a layer an overdub keeps
             if(encoderID == 0 && knob_page[0] == 2 && stepsPerRevolution == 0)
             {
@@ -939,12 +963,6 @@ namespace chompi
                     || (encoderID == 4 && quantized_pitch_))
                 {
                     inc = 0.f;
-                }
-                else if((encoderID == 1 || encoderID == 2) && page == 0 && OnSamplerPage())
-                {
-                    // PORTA: start / end step finer as they close in, down to granular windows
-                    const float window = enc_values[0][2] - enc_values[0][1];
-                    inc = turns * fclamp(.03f * window, .0001f, kEncoderFineStep);
                 }
                 else if ((encoderID == 0 && page == 0 && !quantized_pitch_)
                     || (encoderID == 1 && page == 0)
@@ -987,8 +1005,7 @@ namespace chompi
             // TODO: set here, if they don't update, don't update
             if(page == 0 && (encoderID == 1 || encoderID == 2))
             {
-                // the voice refuses too short a loop itself; this only keeps start before end
-                if ((enc_values[0][1] + (OnSamplerPage() ? .0001f : .01f)) >= enc_values[0][2])
+                if ((enc_values[0][1] + .01f) >= enc_values[0][2])
                 {
                     enc_values[page][encoderID] = old_val;
                     // enc_values[0][2] = enc_values[0][1] + .01f;

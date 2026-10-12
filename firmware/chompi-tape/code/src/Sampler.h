@@ -320,6 +320,7 @@ namespace daisy
         inline float GetDubGain() { return dub_gain_target_; }
 
         void ResetRamBuff() { ram_buff.Reset(); }
+        inline void SetDubGain(float g) { dub_gain_ = dub_gain_target_ = g; }
 
         /** PORTA: take over master's playback state (position, speed, scrub, direction, envelopes) so this
          *  layer plays in lockstep with it from here on. Nothing of master's audio comes along. */
