@@ -60,10 +60,10 @@ namespace chompi
             ss_bank = fx_->GetBank();
         }
 
-        // PORTA: the layer view latched open with CHOMPI up: only the keys are the menu's
+        // PORTA: a picker latched open with CHOMPI up: only the keys are the menu's
         inline bool LatchedOnly() const
         {
-            return OnLoopPage() && fx_->LayerView() && !chompi_key_pressed && preset_mode == PresetMode::NONE;
+            return OnLoopPage() && latch_ != Latch::NONE && !chompi_key_pressed && preset_mode == PresetMode::NONE;
         }
 
         // see-through then, so the normal page draws the knobs, play and loop underneath
@@ -345,11 +345,13 @@ namespace chompi
                 SetSmtLedFloat(5, teal[0], teal[1], teal[2]);
             SetSmtLedFloat(6, 0.f, 0.f, 0.f);
 
-            // Input, one key whose colour says which: pink mic, blue aux, yellow resample.
-            // Low F# and G# are free for now.
+            // Input, one key whose colour says which: pink mic, blue aux, yellow resample (sampler page).
+            // Low F# (slices) is free for now; low G# is the loop page's layer picker, drawn below.
             SetSmtLedFloat(2, 0.f, 0.f, 0.f);
             SetSmtLedFloat(3, 0.f, 0.f, 0.f);
-            switch(fx_->GetInputSource())
+            if(OnLoopPage())
+                SetSmtLedFloat(4, 0.f, 0.f, 0.f);
+            else switch(fx_->GetInputSource())
             {
                 case InputSource::MIC: SetSmtLedFloat(4, pink[0], .7f * pink[1], .7f * pink[2]); break;
                 case InputSource::LINE_IN: SetSmtLedFloat(4, blue[0], blue[1], blue[2]); break;
@@ -846,16 +848,9 @@ namespace chompi
             case static_cast<uint16_t>(Hardware::SwId::KEY_16): // Jammi mode bank, fall through
             case static_cast<uint16_t>(Hardware::SwId::KEY_17): // Cubbi mode bank
             {                
-                if(OnLoopPage())
-                {
-                    // PORTA loop page: C# turns the layer view on or off (it stays after CHOMPI comes up),
-                    // D# will be the projects
-                    if(rising && buttonID == static_cast<uint16_t>(Hardware::SwId::KEY_16))
-                        fx_->SetLayerView(!fx_->LayerView());
-                    else if(!rising)
-                        return false; // note off falls through
-                    break;
-                }
+                // PORTA loop page: the sample picker latches open; pick a sample on the white keys to close it
+                if(rising && OnLoopPage())
+                    latch_ = Latch::SAMPLES;
 
                 if(rising && !no_sd_card_)
                 {
@@ -889,18 +884,27 @@ namespace chompi
             }
             break;
 
-            // PORTA: low F# (slice mode / sampler page TBD) and low G# (sequencer), not built yet
-            case static_cast<uint16_t>(Hardware::SwId::KEY_18): // fall through
-            case static_cast<uint16_t>(Hardware::SwId::KEY_19):
+            // PORTA: low F#, the slice machine, not built yet
+            case static_cast<uint16_t>(Hardware::SwId::KEY_18):
             {
                 if(!rising)
                     return false; // note off falls through
                 break;
             }
 
-            case static_cast<uint16_t>(Hardware::SwId::KEY_20): // input: mic -> aux -> resample
+            // PORTA: low G#, the layer picker on the loop page (the sequencer, later)
+            case static_cast<uint16_t>(Hardware::SwId::KEY_19):
             {
-                if(rising)
+                if(rising && OnLoopPage())
+                    latch_ = latch_ == Latch::LAYERS ? Latch::NONE : Latch::LAYERS;
+                else if(!rising)
+                    return false; // note off falls through
+                break;
+            }
+
+            case static_cast<uint16_t>(Hardware::SwId::KEY_20): // input: mic -> aux -> resample, sampler page only
+            {
+                if(rising && !OnLoopPage())
                 {
                     const int next = (static_cast<int>(fx_->GetInputSource()) + 1) % static_cast<int>(InputSource::LAST);
                     fx_->SetInputSource(static_cast<InputSource>(next));
@@ -1016,11 +1020,34 @@ namespace chompi
                     break;
                 }
 
-                if(fx_->LayerView() && OnLoopPage() && preset_mode == PresetMode::NONE)
+                if(latch_ == Latch::SAMPLES && OnLoopPage() && preset_mode == PresetMode::NONE)
                 {
-                    // a layer key: tap to record into that layer, hold 2 s to solo it (again: all back).
-                    // With CHOMPI: tap to mute or unmute it, hold 1 s to bounce the others into it.
-                    // The other white keys do nothing in the layer view.
+                    // the sample picker: a key picks the bank's sample (or, for one-shots, the kit) and
+                    // closes it, back to the normal keyboard
+                    const size_t slot = KeyToSlot(buttonID);
+                    if(rising && slot != kSlotNone && !no_sd_card_)
+                    {
+                        if(fx_->GetVoiceMode() == VoiceMode::CUBBI)
+                            latch_ = Latch::NONE;
+                        else if(fx_->GetFileExists(slot - 1))
+                        {
+                            ss_bank = fx_->GetBank();
+                            ss_mode = fx_->GetVoiceMode();
+                            selected_slot = slot;
+                            SetVoiceSlot(selected_slot);
+                            latch_ = Latch::NONE;
+                        }
+                    }
+                    if(!rising && slot == kSlotNone)
+                        return false; // a black key's note off falls through
+                    break;
+                }
+
+                if(latch_ == Latch::LAYERS && OnLoopPage() && preset_mode == PresetMode::NONE)
+                {
+                    // the layer picker: tap a layer to record into it, which closes the picker; hold 2 s to
+                    // solo it (again: all back). With CHOMPI: tap to mute or unmute it, hold 1 s to bounce
+                    // the others into it. The other white keys do nothing.
                     const size_t key = KeyToSlot(buttonID);
                     if(key >= 1 && key <= kNumLayers)
                     {
@@ -1037,6 +1064,8 @@ namespace chompi
                         {
                             if(held_shift_ && !bounce_fired_)
                                 fx_->ToggleLooperMute(key - 1);
+                            else if(!held_shift_ && !bounce_fired_)
+                                latch_ = Latch::NONE; // picked: back to the keyboard
                             held_layer_ = -1;
                         }
                     }
@@ -1133,6 +1162,7 @@ namespace chompi
             pitch_reset = false;
             chompi_key_pressed = true;
             opened_on_loop_page_ = switch_state;
+            latch_ = Latch::NONE;
             held_layer_ = -1;
 
             if(quantized_pitch_)
@@ -1151,9 +1181,9 @@ namespace chompi
 
         inline void SetSwitchState(bool state)
         {
+            if(state != switch_state)
+                latch_ = Latch::NONE; // the pickers belong to the page they were opened on
             switch_state = state;
-            if(!state && fx_)
-                fx_->SetLayerView(false); // the layer view is the loop page's
         }
 
         // PORTA: toggle up is the loop page
@@ -1181,12 +1211,11 @@ namespace chompi
             }
         }
 
-        // loop page: C# bright while the layer view is on, and then keys 1-4 are the layers
+        // loop page: G# bright while the layer picker is open, and then keys 1-4 are the layers
         void DrawLayerView()
         {
-            const bool on = fx_->LayerView();
-            SetSmtLedFloat(0, on ? 1.f : .25f, on ? 1.f : .25f, on ? 1.f : .25f);
-            SetSmtLedFloat(1, 0.f, 0.f, 0.f);
+            const bool on = latch_ == Latch::LAYERS;
+            SetSmtLedFloat(3, on ? 1.f : .25f, on ? 1.f : .25f, on ? 1.f : .25f);
             if(!on)
                 return;
 
@@ -1209,8 +1238,9 @@ namespace chompi
 
         bool IsClosable()
         { 
-            if(OnLoopPage() && fx_->LayerView() && switch_state == opened_on_loop_page_ && preset_mode == PresetMode::NONE)
-                return false; // the layer view latches the menu open
+            if(OnLoopPage() && latch_ != Latch::NONE && switch_state == opened_on_loop_page_
+               && preset_mode == PresetMode::NONE)
+                return false; // a picker latches the menu open
 
             if(
                 System::GetNow() - blink_startt > 1000                              // animation done AND
@@ -1271,6 +1301,8 @@ namespace chompi
 
         bool chompi_key_pressed = false;
         bool opened_on_loop_page_ = false; // the toggle when the menu opened, the menu closes if it moves
+        enum class Latch { NONE, SAMPLES, LAYERS };
+        Latch latch_ = Latch::NONE;        // loop page: a picker latched open by C#/D# or G#
         int held_layer_ = -1;              // the layer key held down, for the bounce
         uint32_t held_since_ = 0;
         bool held_shift_ = false;          // CHOMPI was down when the layer key went down

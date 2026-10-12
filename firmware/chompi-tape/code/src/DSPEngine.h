@@ -1342,11 +1342,6 @@ namespace daisy
         inline bool IsLooperLayerMuted(size_t layer) const { return looper.Muted(layer); }
         inline void SoloLooperLayer(size_t layer) { looper.Solo(layer); }
 
-        /** PORTA loop page: the layer view, latched by CHOMPI + C#. UI state, kept here because both the
-         *  normal page and the CHOMPI menu need it. */
-        inline bool LayerView() const { return layer_view_; }
-        inline void SetLayerView(bool on) { layer_view_ = on; }
-
         /** arm the looper: it starts recording (first take or overdub) when the input crosses threshold */
         void ArmLooper(float threshold)
         {
@@ -1638,7 +1633,6 @@ namespace daisy
 
 
         bool record, record_latch;
-        bool layer_view_ = false;
         uint8_t rec_wraps_ = 0;
         volatile float rec_wait_ = 0.f; // threshold, 0 once recording
         bool rec_armed_ = false;
