@@ -31,7 +31,10 @@ Items marked **(open)** are undecided.
   held, tap to arm (knob 1's threshold; with it off, records latched); recording: tap to stop and keep
   playing; with a sample: tap to overdub (latched) or hold to overdub while held; armed: tap to cancel. Play:
   play / pause the sample; play + loop held 2 s: delete. No replace: delete, then record again. Keys play the
-  sample at its own pitch. The sample loop plays through knob 4's FX live (its input is recorded one block, 1 ms, late to allow it).
+  sample at its own pitch. **Mid C# (FX pre / post) on the sampler page:** **pre** (yellow): the FX are on the **input** (mic / aux),
+heard and recorded so, while the loop, keys and 4TRACK play dry. **Post** (teal): the FX are on the loop, live
+(its input is recorded one block, 1 ms, late to allow it), and the input records dry. One FX chain: one or the
+other.
 **Overdubbing with the input on resample replaces** what's on the loop: it re-prints the loop as heard
 (FX, window, speed); mic / aux overdubs layer on top.
 - Kit capture: open the kit picker and arm; each threshold-crossing hit becomes a snapshot in the next slot
