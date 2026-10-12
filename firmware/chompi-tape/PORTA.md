@@ -74,6 +74,12 @@ four-layer looper.
 - **Track picker, CHOMPI + tap:** the current track: print while CHOMPI is held; another track: select it.
   Auditioning is CHOMPI + hold (until CHOMPI is released), so the two don't clash.
 - **Track LEDs (built):** empty dim white, with content pink, selected green, muted blinks dimly.
+- **Arming a track with content** records another overdub on it (as now).
+- **Deleting tracks (built):** in the track picker press erase, tap the tracks (they turn magenta, CHOMPI
+  flashes magenta), then CHOMPI deletes them (CHOMPI flashes red). Deleting the last one empties the looper.
+  TAPE's sample erase uses the same colours. Copy key: pearl white. Track menu key (low G#): green.
+- **Save (planned, with projects):** opens the project slot menu: up to 15 slots of 4 tracks. Today it's
+  still TAPE's: save the sample buffer into a slot of the current bank.
 
 ## The two pages
 
