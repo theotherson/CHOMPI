@@ -1335,6 +1335,9 @@ namespace daisy
         inline bool IsLooperLayerReady(size_t layer) { return looper.LayerReady(layer); }
         inline void ServiceLooper() { looper.ServiceClears(); } // SD timer
         inline void SetLooperWindow(float start, float end) { looper.SetWindow(start, end); }
+        inline bool BounceLooperInto(size_t layer) { return looper.BounceInto(layer); }
+        inline bool IsLooperBouncing() const { return looper.IsBouncing(); }
+        inline size_t LooperBounceDest() const { return looper.BounceDest(); }
 
         /** arm the looper: it starts recording (first take or overdub) when the input crosses threshold */
         void ArmLooper(float threshold)

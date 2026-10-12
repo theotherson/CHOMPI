@@ -108,6 +108,11 @@ namespace daisy
             static constexpr size_t kChunk = 16 * 1024; // samples, 32 KB per tick
             if(reset || Master().IsResetting())
                 return; // the old loop is still fading out
+            if(bouncing_)
+            {
+                BounceChunk(kChunk);
+                return;
+            }
             for(size_t l = 0; l < kNumLayers; l++)
             {
                 const size_t len = dirty_len_[l];
@@ -125,6 +130,30 @@ namespace daisy
                 return; // one chunk per tick
             }
         }
+
+        /** Portastudio-style bounce: every other recorded layer is mixed into dest and left empty, freeing
+         *  it to record into. Done on the SD timer a chunk at a time, moving each sample (added into dest,
+         *  zeroed in its source) so what plays never changes. Not while recording. */
+        bool BounceInto(size_t dest)
+        {
+            if(dest >= kNumLayers || first_record || record || record_target || bouncing_ || dirty_len_[dest])
+                return false;
+            uint8_t sources = 0;
+            for(size_t l = 0; l < kNumLayers; l++)
+                if(l != dest && filled_[l] && !dirty_len_[l])
+                    sources |= 1 << l;
+            if(!sources)
+                return false;
+
+            bounce_dest_    = dest;
+            bounce_sources_ = sources;
+            bounce_pos_     = 0;
+            bounce_end_     = mem_[master_]->length;
+            bouncing_       = true;
+            return true;
+        }
+        inline bool IsBouncing() const { return bouncing_; }
+        inline size_t BounceDest() const { return bounce_dest_; }
 
         inline bool IsPlaying() { return playing && !first_record; }
         inline bool IsFirstRecording() { return first_record; }
@@ -273,6 +302,8 @@ namespace daisy
             }
             else
             {
+                if(bouncing_)
+                    return; // a bounce is moving audio between layers, a moment
                 if(!first_record && dirty_len_[active_])
                     return; // the layer is still being cleared, a moment
 
@@ -354,6 +385,7 @@ namespace daisy
 
         void Reset()
         {
+            bouncing_ = false; // the layers are being cleared anyway
             ClearWindow();
             for(size_t l = 0; l < kNumLayers; l++)
             {
@@ -415,6 +447,41 @@ namespace daisy
     private:
         inline FileSampler& Master() { return layers_[master_]; }
 
+        void BounceChunk(size_t chunk)
+        {
+            const size_t start = bounce_pos_;
+            const size_t end   = start + chunk < bounce_end_ ? start + chunk : bounce_end_;
+            int16_t* const dest = mem_[bounce_dest_]->mem;
+            for(size_t l = 0; l < kNumLayers; l++)
+            {
+                if(!(bounce_sources_ & (1 << l)))
+                    continue;
+                int16_t* const src = mem_[l]->mem;
+                for(size_t i = start; i < end; i++)
+                {
+                    const int32_t sum = int32_t(dest[i]) + src[i];
+                    dest[i] = sum > 32767 ? 32767 : (sum < -32768 ? -32768 : sum);
+                    src[i]  = 0;
+                }
+            }
+            bounce_pos_ = end;
+            if(end < bounce_end_)
+                return;
+
+            // done: unless a reset in the audio interrupt cancelled it meanwhile
+            const uint32_t primask = __get_PRIMASK();
+            __disable_irq();
+            if(bouncing_)
+            {
+                for(size_t l = 0; l < kNumLayers; l++)
+                    if(bounce_sources_ & (1 << l))
+                        filled_[l] = false;
+                filled_[bounce_dest_] = true;
+                bouncing_ = false;
+            }
+            __set_PRIMASK(primask);
+        }
+
         void ClearWindow()
         {
             for(size_t l = 0; l < kNumLayers; l++)
@@ -449,6 +516,10 @@ namespace daisy
         bool filled_[kNumLayers];
         volatile size_t dirty_len_[kNumLayers]; // samples left to clear, from the end down
         size_t active_, master_;
+
+        volatile bool bouncing_ = false;
+        size_t bounce_dest_ = 0, bounce_pos_ = 0, bounce_end_ = 0;
+        uint8_t bounce_sources_ = 0;
 
         bool record, first_record, record_target;
         bool playing, play_target;

@@ -982,11 +982,24 @@ namespace chompi
                     break;
                 }
 
-                if(rising && layer_select_ && OnLoopPage() && preset_mode == PresetMode::NONE)
+                if(layer_select_ && OnLoopPage() && preset_mode == PresetMode::NONE)
                 {
+                    // tap a layer key to record into that layer, hold it 1 s to bounce the others into it
                     const size_t key = KeyToSlot(buttonID);
                     if(key >= 1 && key <= kNumLayers)
-                        fx_->SetLooperLayer(key - 1);
+                    {
+                        if(rising)
+                        {
+                            fx_->SetLooperLayer(key - 1);
+                            held_layer_    = int(key - 1);
+                            held_since_    = System::GetNow();
+                            bounce_fired_  = false;
+                        }
+                        else if(held_layer_ == int(key - 1))
+                            held_layer_ = -1;
+                    }
+                    if(!rising)
+                        return false; // note off falls through
                     break;
                 }
 
@@ -1079,6 +1092,7 @@ namespace chompi
             chompi_key_pressed = true;
             opened_on_loop_page_ = switch_state;
             layer_select_ = false;
+            held_layer_ = -1;
 
             if(quantized_pitch_)
             {
@@ -1130,11 +1144,23 @@ namespace chompi
             if(!layer_select_)
                 return;
 
+            const uint32_t now = System::GetNow();
+            if(held_layer_ >= 0 && !bounce_fired_ && now - held_since_ >= kBounceHoldMs)
+            {
+                fx_->BounceLooperInto(size_t(held_layer_));
+                bounce_fired_ = true;
+            }
+
             for(uint8_t i = 1; i < 16; i++)
             {
                 const size_t layer = i - 1;
                 if(layer >= kNumLayers)
                     SetSmtLedFloat(25 - i, 0.f, 0.f, 0.f);
+                else if(fx_->IsLooperBouncing() && layer == fx_->LooperBounceDest()) // bouncing into it
+                {
+                    const float on = (now / 100) % 2 ? 1.f : 0.f;
+                    SetSmtLedFloat(25 - i, on, on, on);
+                }
                 else if(layer == fx_->GetLooperLayer())
                     SetSmtLedFloat(25 - i, green[0], green[1], green[2]);
                 else if(!fx_->IsLooperLayerReady(layer))
@@ -1208,6 +1234,10 @@ namespace chompi
         bool chompi_key_pressed = false;
         bool opened_on_loop_page_ = false; // the toggle when the menu opened, the menu closes if it moves
         bool layer_select_ = false;        // loop page: C# pressed, keys 1-4 are the layers
+        int held_layer_ = -1;              // the layer key held down, for the bounce
+        uint32_t held_since_ = 0;
+        bool bounce_fired_ = false;
+        static constexpr uint32_t kBounceHoldMs = 1000;
         bool blink_state = true;
         uint32_t blink_startt;
         uint32_t last_blink;
