@@ -1037,7 +1037,8 @@ namespace chompi
 
         }
 
-        // blinks pink while a recording is saved, red while recording, else the input level
+        // the sampler page's loop key: off while the buffer's empty; blinking red armed, red for the first
+        // take, yellow overdubbing, dim white holding a sample; blinking pink while it's saved
         void RecordLed(uint32_t now, float &r, float &g, float &b)
         {
             if(copier_->IsCopying())
@@ -1051,26 +1052,29 @@ namespace chompi
                 g = record_blink ? pink[1] : 0.f;
                 b = record_blink ? pink[2] : 0.f;
             }
-            else if(fx_->SamplerWaiting()) // waiting for the threshold: red, blinking
+            else if(fx_->SamplerWaiting()) // armed: red, blinking
             {
                 const bool on = (now / 150) % 2;
                 r = on ? red[0] : 0.f;
                 g = on ? red[1] : 0.f;
                 b = on ? red[2] : 0.f;
             }
-            else if(fx_->SamplerRecording())
+            else if(fx_->SamplerRecording() && fx_->SamplerFirstTake())
             {
                 r = red[0];
                 g = red[1];
                 b = red[2];
             }
-            else
+            else if(fx_->SamplerRecording()) // overdubbing
             {
-                const float vu_sample = fx_->GetVUSample(VUTarget::VU_INPUT);
-                r = color_quad_xfade(.1f, green[0], yellow[0], pink[0], vu_sample);
-                g = color_quad_xfade(.1f, green[1], yellow[1], pink[1], vu_sample);
-                b = color_quad_xfade(.1f, green[2], yellow[2], pink[2], vu_sample);
+                r = yellow[0];
+                g = yellow[1];
+                b = yellow[2];
             }
+            else if(fx_->SamplerEmpty())
+                r = g = b = 0.f;
+            else
+                r = g = b = .2f;
         }
 
         void SetSwitchState(bool state)

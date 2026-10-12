@@ -270,6 +270,15 @@ namespace chompi
                 normal_page_.ResetSmtLeds();
             }
 
+            // PORTA: on the sampler page (toggle up) the menu is always open, no CHOMPI needed
+            if(!toggle_state && normal_page_.IsActive() && !menu_page_.IsActive() && !boot_page_.IsActive()
+               && !rainbow_page_.IsActive() && !test_page_.IsActive() && !no_sd_page_.IsActive())
+            {
+                menu_page_.SetSwitchState(toggle_state);
+                menu_page_.OpenForSampler();
+                ui.OpenPage(menu_page_);
+            }
+
             if(test_page_.IsClosable() && test_page_.IsActive())
             {
                 ui.ClosePage(test_page_);

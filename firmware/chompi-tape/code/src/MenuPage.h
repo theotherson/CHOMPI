@@ -60,12 +60,13 @@ namespace chompi
             ss_bank = fx_->GetBank();
         }
 
-        enum class Latch { NONE, SAMPLES, LAYERS }; // PORTA loop page: the picker latched open, if any
+        // PORTA: what holds the menu open without CHOMPI: a loop-page picker, or the sampler page itself
+        enum class Latch { NONE, SAMPLES, LAYERS, SAMPLER };
 
         // PORTA: a picker latched open with CHOMPI up: only the keys are the menu's
         inline bool LatchedOnly() const
         {
-            return OnLoopPage() && latch_ != Latch::NONE && !chompi_key_pressed && preset_mode == PresetMode::NONE;
+            return latch_ != Latch::NONE && !chompi_key_pressed && preset_mode == PresetMode::NONE;
         }
 
         // see-through then, so the normal page draws the knobs, play and loop underneath
@@ -1049,6 +1050,10 @@ namespace chompi
 
             // white keys and play/pause
             default:
+                // sampler page, CHOMPI up, not picking a slot: the white keys play the sample
+                if(latch_ == Latch::SAMPLER && !chompi_key_pressed && preset_mode == PresetMode::NONE)
+                    return false;
+
                 // PORTA: CHOMPI + loop arms recording, which starts when the input crosses the threshold
                 // (knob 1 on the sampler page). Pressing it again, or loop alone, stops or cancels it.
                 // This was TAPE's overdub level (CHOMPI + play/loop), which has no control for now.
@@ -1258,9 +1263,10 @@ namespace chompi
         {
             fx_reset = false;
             pitch_reset = false;
-            chompi_key_pressed = true;
+            chompi_key_pressed = !open_unshifted_;
             opened_on_loop_page_ = switch_state;
-            SetLatch(Latch::NONE);
+            SetLatch(open_unshifted_ ? Latch::SAMPLER : Latch::NONE);
+            open_unshifted_ = false;
             held_layer_ = -1;
             held_mask_ = source_mask_ = 0;
             track_erase_ = false;
@@ -1286,6 +1292,10 @@ namespace chompi
                 SetLatch(Latch::NONE); // the pickers belong to the page they were opened on
             switch_state = state;
         }
+
+        // PORTA sampler page: the menu stays open there without CHOMPI, its black keys always functions,
+        // its white keys the sample's (they fall through to the normal page)
+        inline void OpenForSampler() { open_unshifted_ = true; }
 
         // PORTA: toggle down (TAPE's play position) is the 4TRACK (loop) page
         inline bool OnLoopPage() const { return switch_state; }
@@ -1335,6 +1345,8 @@ namespace chompi
         // loop page: G# bright while the layer picker is open, and then keys 1-4 are the layers
         void DrawLayerView()
         {
+            if(latch_ == Latch::LAYERS && fx_->IsLooperRecordArmed())
+                SetLatch(Latch::NONE); // armed: back to the keyboard for the note that starts it
             const bool on = latch_ == Latch::LAYERS;
             SetSmtLedFloat(3, 0.f, on ? 1.f : .25f, 0.f); // the track menu key: green
             if(!on)
@@ -1354,9 +1366,8 @@ namespace chompi
 
         bool IsClosable()
         { 
-            if(OnLoopPage() && latch_ != Latch::NONE && switch_state == opened_on_loop_page_
-               && preset_mode == PresetMode::NONE)
-                return false; // a picker latches the menu open
+            if(latch_ != Latch::NONE && switch_state == opened_on_loop_page_ && preset_mode == PresetMode::NONE)
+                return false; // a picker, or the sampler page, latches the menu open
 
             if(
                 System::GetNow() - blink_startt > 1000                              // animation done AND
@@ -1417,7 +1428,8 @@ namespace chompi
 
         bool chompi_key_pressed = false;
         bool opened_on_loop_page_ = false; // the toggle when the menu opened, the menu closes if it moves
-        Latch latch_ = Latch::NONE;        // loop page: a picker latched open by C#/D# or G#
+        Latch latch_ = Latch::NONE;
+        bool open_unshifted_ = false; // opened for the sampler page, not by CHOMPI        // loop page: a picker latched open by C#/D# or G#
         // layer picker: the layer pressed with CHOMPI (select / audition)
         int held_layer_ = -1;
         uint32_t held_since_ = 0;
