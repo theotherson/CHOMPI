@@ -154,7 +154,7 @@ yellow overdub, dim white holding a sample.
 
 | Key | Function |
 |---|---|
-| white keys 1–14 | **the current bank's slots:** tap to audition, **hold 0.5 s to load** into the sample buffer (cut at 10 s; it starts looping) |
+| white keys 1–14 | **the current bank's slots:** tap to audition, **CHOMPI + tap to load** into the sample buffer (cut at 10 s; it starts looping) |
 | top white key | **the buffer:** plays from its top while held; pink when it holds something |
 | low C# / D# | chromatic / loop banks: the other key switches mode, the same key steps banks (TAPE's way). Kit capture comes here later |
 | low F# | **Bake (built):** plays the sample once from start to end (knobs 2/3), at the wheel's speed, alone through the FX, and replaces it with the result; then the FX knobs (and CHOMPI's resonance, warble, delay time) go neutral and the trim to the whole sample. Magenta with a sample, flashing while baking. Save stays separate: bake, listen, save |

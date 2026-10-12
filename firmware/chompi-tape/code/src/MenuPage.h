@@ -88,14 +88,6 @@ namespace chompi
                 last_blink = now;
             }
 
-            // sampler page: a slot held 0.5 s in the picker loads into the buffer
-            if(pick_slot_ != kSlotNone && now - pick_since_ >= kLoadHoldMs && !copier_->IsCopying())
-            {
-                const size_t slot = pick_slot_;
-                pick_slot_ = kSlotNone;
-                LoadIntoSampler(slot);
-            }
-
             if(fx_->TakeBakeDone())
             {
                 fx_->SamplerAdoptBake();
@@ -1079,9 +1071,22 @@ namespace chompi
 
             // white keys and play/pause
             default:
+                // sampler page, CHOMPI held, not picking a slot to save to: a slot loads into the buffer
+                if(latch_ == Latch::SAMPLER && chompi_key_pressed && preset_mode == PresetMode::NONE
+                   && buttonID < 29)
+                {
+                    const size_t slot = KeyToSlot(buttonID);
+                    if(rising && slot != kSlotNone && slot != 15 && !no_sd_card_ && fx_->GetFileExists(slot - 1)
+                       && !copier_->IsCopying())
+                    {
+                        ReleaseHeld();
+                        LoadIntoSampler(slot);
+                    }
+                    break;
+                }
+
                 // sampler page, CHOMPI up, not picking a slot to save to: white keys 1-14 are the bank's
-                // slots (tap to audition, hold 0.5 s to load into the buffer), the top one is the buffer
-                // (it plays from its top while held)
+                // slots (tap to audition), the top one is the buffer (it plays from its top while held)
                 if(latch_ == Latch::SAMPLER && !chompi_key_pressed && preset_mode == PresetMode::NONE)
                 {
                     const size_t slot = KeyToSlot(buttonID);
@@ -1099,13 +1104,6 @@ namespace chompi
                     }
                     if(slot != kSlotNone && !no_sd_card_)
                     {
-                        if(rising && fx_->GetFileExists(slot - 1))
-                        {
-                            pick_slot_ = slot;
-                            pick_since_ = System::GetNow();
-                        }
-                        else if(!rising && pick_slot_ == slot)
-                            pick_slot_ = kSlotNone;
                         if(hold_) // latched: a new key replaces the held one, letting go doesn't stop it
                         {
                             if(!rising)
@@ -1435,8 +1433,6 @@ namespace chompi
         {
             if(latch != Latch::SAMPLER && hold_ && fx_)
                 SetHold(false);
-            if(latch != Latch::SAMPLER)
-                pick_slot_ = kSlotNone;
             if(latch != Latch::LAYERS && fx_)
             {
                 fx_->SetLooperAudition(-1);
@@ -1568,9 +1564,7 @@ namespace chompi
         bool hold_ = false;         // sampler page latch (mid D#)
         int held_key_ = -1;         // the key it's holding, if a slot
         bool buffer_held_ = false;  // or the buffer key
-        size_t pick_slot_ = kSlotNone; // sampler page picker: the slot held down, loading at kLoadHoldMs
-        uint32_t pick_since_ = 0;
-        static constexpr uint32_t kLoadHoldMs = 500;        // loop page: a picker latched open by C#/D# or G#
+        // loop page: a picker latched open by C#/D# or G#
         // layer picker: the layer pressed with CHOMPI (select / audition)
         int held_layer_ = -1;
         uint32_t held_since_ = 0;
