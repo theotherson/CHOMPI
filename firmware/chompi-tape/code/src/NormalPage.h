@@ -1070,7 +1070,7 @@ namespace chompi
 
         inline void SetCovered(bool covered) { covered_ = covered; }
 
-        // PORTA: the toggle picks the page. Down (TAPE's record position, input monitored) is the sampler page.
+        // PORTA: the toggle picks the page. Up (TAPE's record position, input monitored) is the sampler page.
         inline bool OnSamplerPage() const { return !switch_state; }
 
         // the threshold as a level: knob 1 on the sampler page, cubed so the low end is finer (as MIXTAPE)

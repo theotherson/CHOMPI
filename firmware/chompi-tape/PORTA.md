@@ -13,7 +13,7 @@ Items marked **(open)** are undecided.
 
 ---
 
-## The model (proposed 2026-10-12, open: confirm)
+## The model (confirmed 2026-10-12)
 
 ```
  SAMPLER page                 4TRACK page (was "loop page")
@@ -30,7 +30,7 @@ Items marked **(open)** are undecided.
   replace (delete with play + loop held, then record again).
 - Kit capture: open the kit picker and arm; each threshold-crossing hit becomes a snapshot in the next slot
   (1…15) until loop is pressed; the filled slots blink, then save or delete the kit.
-- **(open)** Toggle direction: Sam mentioned the top position for sample generation; today down is the sampler.
+- Toggle **up** is the sampler page (TAPE's record position), **down** the 4TRACK page.
 
 ### Length limits (decided 2026-10-12)
 
@@ -49,7 +49,7 @@ The **toggle switch** chooses the page:
 | one side | **Sampler page** | Record an input into the buffer, manipulate it, save it to a sample slot. Play the sample banks, with the sequencer/arp. |
 | other side | **Loop page** | Build a project's loop from up to 4 layers, manipulate layers or the whole loop, print and save. |
 
-Toggle down (TAPE's record position, input monitored) is the sampler page; up is the loop page.
+Toggle up (TAPE's record position, input monitored) is the sampler page; down is the loop (4TRACK) page.
 
 Recording: in TAPE, the CHOMPI key records in the record position and opens the black-key menu in the
 play position. PORTA needs that menu on both pages, so CHOMPI is shift only and **the loop key records**:

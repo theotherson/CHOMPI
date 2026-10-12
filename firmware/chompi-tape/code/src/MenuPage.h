@@ -1239,7 +1239,7 @@ namespace chompi
             switch_state = state;
         }
 
-        // PORTA: toggle up is the loop page
+        // PORTA: toggle down (TAPE's play position) is the 4TRACK (loop) page
         inline bool OnLoopPage() const { return switch_state; }
 
         // open or close a picker; closing the layer picker ends an audition and drops bounce sources
