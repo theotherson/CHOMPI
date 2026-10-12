@@ -160,7 +160,8 @@ yellow overdub, dim white holding a sample.
 | low F# | **Bake (built):** plays the sample once from start to end (knobs 2/3), at the wheel's speed, alone through the FX, and replaces it with the result; then the FX knobs (and CHOMPI's resonance, warble, delay time) go neutral and the trim to the whole sample. Magenta with a sample, flashing while baking. Save stays separate: bake, listen, save |
 | low G# | Free |
 | low A# | Input type: cycles mic → aux → resample. Key LED colour shows which |
-| mid C#, mid D#, upper F#/G#/A# | As on the loop page **(open)** |
+| mid D# | **Latch (built):** a key played while it's on keeps sounding after it's let go, to edit it (pitch, start, end, filter) while it plays; a new key replaces it, latch off stops it. White when on |
+| mid C#, upper F#/G#/A# | As on the loop page **(open)** |
 
 ### Sequencer / arpeggiator (middle D#, 4TRACK page, planned)
 
@@ -183,17 +184,26 @@ Pattern keys (white keys while the patterns show):
 
 ### Knobs
 
-Both pages share TAPE 2.0's knobs, except:
+Each knob's click steps its pages; CHOMPI + a knob is its second function (the "shift" layer).
 
-| Knob | Sampler page | Loop page |
-|---|---|---|
-| 1 | Recording threshold (off fully left; LED white by level, red while the input is above it) | Pages: sample pitch, gain (TAPE), **overdub level** (red keeps nothing, green keeps it all) |
-| 2 / 3 | **The sample loop's start / end**, live, down to 10 ms, finer as they close in (bake uses them) | **Recorded loop's start / end**, all layers together |
-| 4 | FX (TAPE) | FX (TAPE) |
-| Wheel | **The sample loop's** speed while it plays, scrub while stopped | TAPE (the looper) |
-| Volume | TAPE | TAPE |
+| Knob | Page | Knob alone | CHOMPI + knob |
+|---|---|---|---|
+| 1 | 1 | Level (TAPE's gain) | Overdub level (red keeps nothing, green keeps it all) |
+| 1 | 2 | Recording threshold (off fully left; LED white by level, red while the input is above it) | Input level |
+| 1 | 3 | Tuning (TAPE's pitch) | Stepped tuning |
+| 1 | 4 | **LFO (planned, after the clock)** | Opens a white-key menu: shape off / triangle / square / random, targets pitch / filter / level |
+| 2 / 3 | 1 | **Start / end:** the sample loop's on the sampler page (live, down to 10 ms, finer as they close in; bake uses them), the recorded loop's (all layers) on the 4TRACK page | Amp attack / release (saved per slot, as TAPE) |
+| 2 / 3 | 2 | **Filter cutoff / resonance** (TAPE's DJ filter, moved from knob 4: low-pass left, high-pass right, open in the middle) | **Filter envelope attack / release** (1 ms to 4 s; both at zero = off) |
+| 4 | 1 / 2 | FX: reverb / delay, lofi (TAPE; the filter page moved to knobs 2/3) | Delay time, warble |
+| Wheel | | The sample loop's speed while it plays, scrub while stopped (sampler page); TAPE's looper (4TRACK) | **Always stepped** (octaves and fifths, through reverse), on both pages |
+| Volume | | TAPE | TAPE |
 
-The threshold is shared: the loop page's armed recording uses the value set on the sampler page.
+- **Every key press retriggers the filter envelope**, which sweeps the filter from knob 2's setting towards
+  open and back. With the cutoff in the middle (open) it has nothing to sweep.
+- CHOMPI + click knob 1 resets the page shown. CHOMPI + click knob 2 / 3 (auto-loop / sustain) work on the
+  4TRACK page only: on the sampler page keys audition and load rather than play notes.
+- The threshold is shared: the 4TRACK page's armed recording uses the same value.
+- Pan was dropped.
 
 ### Recording
 
