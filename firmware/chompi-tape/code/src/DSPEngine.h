@@ -1453,11 +1453,13 @@ namespace daisy
         inline bool SamplerPlaying() { return sampler_.IsPlaying(); }
         inline float SamplerPosition() { return sampler_.GetPosition(); }
 
-        /** a sample was loaded into the buffer: the sample looper and the keys take it */
+        /** a sample was loaded (or baked) into the buffer: the sample looper takes it and plays it, looping,
+         *  as a recording does once its take ends, and the keys take it too */
         void SamplerAdoptBuffer()
         {
             sampler_wait_ = 0.f;
             sampler_.OpenFile();
+            sampler_.PlayFromStart();
             UseSamplerSample();
         }
 
