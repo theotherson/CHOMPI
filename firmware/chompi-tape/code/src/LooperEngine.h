@@ -173,6 +173,7 @@ namespace daisy
 
         // hear only layer l while it's auditioned, -1 for none
         inline void SetAudition(int l) { audition_ = l < int(kNumLayers) ? l : -1; }
+        inline int Audition() const { return audition_; }
 
         // arm the active layer: recording into it starts with the next note played, as TAPE's record arm
         void ArmOnNote()

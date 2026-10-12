@@ -60,6 +60,8 @@ namespace chompi
             ss_bank = fx_->GetBank();
         }
 
+        enum class Latch { NONE, SAMPLES, LAYERS }; // PORTA loop page: the picker latched open, if any
+
         // PORTA: a picker latched open with CHOMPI up: only the keys are the menu's
         inline bool LatchedOnly() const
         {
@@ -850,7 +852,7 @@ namespace chompi
             {                
                 // PORTA loop page: the sample picker latches open; pick a sample on the white keys to close it
                 if(rising && OnLoopPage())
-                    latch_ = Latch::SAMPLES;
+                    SetLatch(Latch::SAMPLES);
 
                 if(rising && !no_sd_card_)
                 {
@@ -896,7 +898,7 @@ namespace chompi
             case static_cast<uint16_t>(Hardware::SwId::KEY_19):
             {
                 if(rising && OnLoopPage())
-                    latch_ = latch_ == Latch::LAYERS ? Latch::NONE : Latch::LAYERS;
+                    SetLatch(latch_ == Latch::LAYERS ? Latch::NONE : Latch::LAYERS);
                 else if(!rising)
                     return false; // note off falls through
                 break;
@@ -1049,14 +1051,14 @@ namespace chompi
                     if(rising && slot != kSlotNone && !no_sd_card_)
                     {
                         if(fx_->GetVoiceMode() == VoiceMode::CUBBI)
-                            latch_ = Latch::NONE;
+                            SetLatch(Latch::NONE);
                         else if(fx_->GetFileExists(slot - 1))
                         {
                             ss_bank = fx_->GetBank();
                             ss_mode = fx_->GetVoiceMode();
                             selected_slot = slot;
                             SetVoiceSlot(selected_slot);
-                            latch_ = Latch::NONE;
+                            SetLatch(Latch::NONE);
                         }
                     }
                     if(!rising && slot == kSlotNone)
@@ -1068,7 +1070,8 @@ namespace chompi
                 {
                     // the layer picker: tap a layer to turn it on or off; hold it 2 s to arm recording into it
                     // (it blinks red), which closes the picker on release, the next note played starts it.
-                    // CHOMPI + a layer: hear only that one while it's held. The other white keys do nothing.
+                    // CHOMPI + tap a layer: hear only that one, until tapped again (or the picker closes);
+                    // CHOMPI + hold it 1 s: bounce the other unmuted layers into it. Other white keys: nothing.
                     const size_t key = KeyToSlot(buttonID);
                     if(key >= 1 && key <= kNumLayers)
                     {
@@ -1078,17 +1081,19 @@ namespace chompi
                             held_since_   = System::GetNow();
                             held_shift_   = chompi_key_pressed;
                             arm_fired_ = false;
-                            if(held_shift_)
-                                fx_->SetLooperAudition(held_layer_);
                         }
                         else if(held_layer_ == int(key - 1))
                         {
                             if(held_shift_)
-                                fx_->SetLooperAudition(-1);
+                            {
+                                // CHOMPI + tap: audition it, or stop; after a 1 s hold it has bounced instead
+                                if(!arm_fired_)
+                                    fx_->SetLooperAudition(fx_->GetLooperAudition() == held_layer_ ? -1 : held_layer_);
+                            }
                             else if(!arm_fired_)
                                 fx_->ToggleLooperMute(key - 1);
                             else
-                                latch_ = Latch::NONE; // armed: back to the keyboard for the note
+                                SetLatch(Latch::NONE); // armed: back to the keyboard for the note
                             held_layer_ = -1;
                         }
                     }
@@ -1185,7 +1190,7 @@ namespace chompi
             pitch_reset = false;
             chompi_key_pressed = true;
             opened_on_loop_page_ = switch_state;
-            latch_ = Latch::NONE;
+            SetLatch(Latch::NONE);
             held_layer_ = -1;
 
             if(quantized_pitch_)
@@ -1205,12 +1210,20 @@ namespace chompi
         inline void SetSwitchState(bool state)
         {
             if(state != switch_state)
-                latch_ = Latch::NONE; // the pickers belong to the page they were opened on
+                SetLatch(Latch::NONE); // the pickers belong to the page they were opened on
             switch_state = state;
         }
 
         // PORTA: toggle up is the loop page
         inline bool OnLoopPage() const { return switch_state; }
+
+        // open or close a picker; closing the layer picker ends an audition
+        void SetLatch(Latch latch)
+        {
+            if(latch != Latch::LAYERS && fx_)
+                fx_->SetLooperAudition(-1);
+            latch_ = latch;
+        }
 
         void ArmRecording()
         {
@@ -1249,7 +1262,13 @@ namespace chompi
                 fx_->ArmLooperOnNote();
                 arm_fired_ = true;
             }
-            DrawLayerKeys(fx_, now, held_layer_ >= 0 && arm_fired_ ? held_layer_ : -1);
+            else if(held_layer_ >= 0 && held_shift_ && !arm_fired_ && now - held_since_ >= kBounceHoldMs)
+            {
+                fx_->SetLooperAudition(-1);
+                fx_->BounceLooperInto(size_t(held_layer_));
+                arm_fired_ = true;
+            }
+            DrawLayerKeys(fx_, now, held_layer_ >= 0 && arm_fired_ && !held_shift_ ? held_layer_ : -1);
         }
 
         bool IsClosable()
@@ -1317,13 +1336,13 @@ namespace chompi
 
         bool chompi_key_pressed = false;
         bool opened_on_loop_page_ = false; // the toggle when the menu opened, the menu closes if it moves
-        enum class Latch { NONE, SAMPLES, LAYERS };
         Latch latch_ = Latch::NONE;        // loop page: a picker latched open by C#/D# or G#
         int held_layer_ = -1;              // the layer key held down, for the bounce
         uint32_t held_since_ = 0;
         bool held_shift_ = false;          // CHOMPI was down when the layer key went down
-        bool arm_fired_ = false;           // the 2 s hold armed the layer
-        static constexpr uint32_t kArmHoldMs = 2000;
+        bool arm_fired_ = false;           // the hold did its thing: armed (2 s) or bounced (CHOMPI, 1 s)
+        static constexpr uint32_t kArmHoldMs    = 2000;
+        static constexpr uint32_t kBounceHoldMs = 1000;
         bool blink_state = true;
         uint32_t blink_startt;
         uint32_t last_blink;
