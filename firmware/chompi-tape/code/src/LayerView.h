@@ -9,7 +9,8 @@ namespace chompi
     /** PORTA loop page, track picker: white keys 1-4 are the tracks, the rest are dark.
      *  Flashing white: being bounced into. Blinking orange: held as a bounce source. Green: selected.
      *  Pink: has content. Dim white: empty. Dim red: being cleared. Muted: blinks dimly in its colour.
-     *  While one is auditioned it pulses and the others are nearly dark. Magenta: picked for deleting. */
+     *  While one is auditioned it pulses and the others are nearly dark. Magenta: picked for deleting.
+     *  Being recorded into: red for the first take, flashing yellow for an overdub. */
     inline void DrawLayerKeys(daisy::Engine* fx, uint32_t now, uint8_t sources = 0, uint8_t erase = 0)
     {
         for(uint8_t key = 1; key < 16; key++)
@@ -30,6 +31,19 @@ namespace chompi
                     r = on;
                     g = .6f * on;
                     b = .24f * on;
+                }
+                else if(fx->IsLooperRecording() && layer == fx->GetLooperLayer())
+                {
+                    // recording into it: red for the first take, flashing yellow for an overdub (as the
+                    // loop key)
+                    if(fx->IsLooperFirstRecording())
+                        r = 1.f;
+                    else if((now / 150) % 2)
+                    {
+                        r = 1.f;
+                        g = .95f;
+                        b = .05f;
+                    }
                 }
                 else if(!fx->IsLooperLayerReady(layer))
                     r = .3f;
