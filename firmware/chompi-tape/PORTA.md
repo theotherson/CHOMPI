@@ -156,6 +156,11 @@ Get recording, layers and printing working first, then slicing.
 - Speed, direction and scrub move all layers together.
 - After a reset, the old layers are cleared in the background (well under a second). A layer being cleared is silent
   and can't be recorded into.
+- Each layer takes unlimited overdubs, merged into that layer. Four is the number of *separate* layers
+  (memory: 4 × 55 s stereo).
+- **Bounce** (Portastudio style): in the layer view, hold CHOMPI and hold a layer key for 1 s. Every other
+  recorded layer is mixed into it and emptied, ready to record again. What plays doesn't change; it takes
+  about a third of a second, and the key flashes meanwhile. This replaces adding more layers.
 - Not done yet: saving and loading the looper still covers layer 1 only; no projects yet.
 
 ---
