@@ -145,7 +145,8 @@ yellow overdub, dim white holding a sample.
 | Key | Function |
 |---|---|
 | low C# / D# | **Load a sample to edit:** the bank on the white keys (again to scroll banks); tap a slot to load it into the sample buffer (cut at 10 s); CHOMPI + slot auditions it. Kit capture comes here later |
-| low F#, low G# | Free |
+| low F# | **Bake (built):** plays the sample once from start to end (knobs 2/3), at the wheel's speed, alone through the FX, and replaces it with the result; then the FX knobs (and CHOMPI's resonance, warble, delay time) go neutral and the trim to the whole sample. Magenta with a sample, flashing while baking. Save stays separate: bake, listen, save |
+| low G# | Free |
 | low A# | Input type: cycles mic → aux → resample. Key LED colour shows which |
 | mid C#, mid D#, upper F#/G#/A# | As on the loop page **(open)** |
 
