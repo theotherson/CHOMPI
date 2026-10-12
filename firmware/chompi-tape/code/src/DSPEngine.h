@@ -1187,6 +1187,76 @@ namespace daisy
             return enc_pos;
         }
 
+        /** PORTA knob 1 tuning: one octave down to one up (.5x - 2x) around the sample's pitch in the
+         *  middle, forwards only. The value kept (and saved per slot) is still TAPE's knob position, so
+         *  saved pitches keep sounding the same: these convert between the two. */
+        static float TapePosToPitch(float pos) // TAPE's curve: signed, negative is reverse
+        {
+            const float val = pos < .5f ? (.5f - pos) * -2.f : (pos - .5f) * 2.f;
+            const float inv = val < 0.f ? -1.f : 1.f;
+            if(fabsf(val) < .33f)
+                return val * 1.484848f + .01f * inv;
+            if(fabsf(val) < .66f)
+                return (val - .33f * inv) * 1.515151f + .5f * inv;
+            return (val - .66f * inv) * 2.941176f + 1.f * inv;
+        }
+        static float PitchToTapePos(float pitch) // forwards
+        {
+            float val;
+            if(pitch < .5f)
+                val = (pitch - .01f) * .673469f;
+            else if(pitch < 1.f)
+                val = (pitch - .5f) * .66f + .33f;
+            else
+                val = (pitch - 1.f) * .34f + .66f;
+            return val * .5f + .5f;
+        }
+        /** where TAPE's knob position sits on PORTA's tuning knob, 0 - 1 (.5 is the sample's pitch) */
+        static float TapePosToTuning(float pos)
+        {
+            const float p = fabsf(TapePosToPitch(pos));
+            return p > 0.f ? daisysp::fclamp((log2f(p) + 1.f) * .5f, 0.f, 1.f) : 0.f;
+        }
+        float SetTuning(float tuning) // returns TAPE's knob position
+        {
+            const float pitch = powf(2.f, 2.f * daisysp::fclamp(tuning, 0.f, 1.f) - 1.f);
+            SetGlobalPitch(pitch);
+            SetReverse(false);
+            return PitchToTapePos(pitch);
+        }
+        float TuneFree(float pos, float inc) { return SetTuning(TapePosToTuning(pos) + inc); }
+        /** stepped: an octave, a fifth, the sample's pitch, a fifth, an octave (four detents a step) */
+        float TuneStepped(int16_t turns, float pos)
+        {
+            encoder_chunk += turns * .25f;
+            if(encoder_chunk < 1.f && encoder_chunk > -1.f)
+                return pos;
+            const bool up = encoder_chunk > 0.f;
+            encoder_chunk = 0.f;
+            static constexpr float kSteps[5] = {-12.f, -7.f, 0.f, 7.f, 12.f};
+            const float semis = (TapePosToTuning(pos) * 2.f - 1.f) * 12.f;
+            float to = semis;
+            if(up)
+            {
+                for(float s : kSteps)
+                    if(s > semis + .1f)
+                    {
+                        to = s;
+                        break;
+                    }
+            }
+            else
+            {
+                for(int i = 4; i >= 0; i--)
+                    if(kSteps[i] < semis - .1f)
+                    {
+                        to = kSteps[i];
+                        break;
+                    }
+            }
+            return SetTuning((to / 12.f + 1.f) * .5f);
+        }
+
         /** unquantized pitch
             * curved s.t.
             *  0.f - .33f = .01x - .5x

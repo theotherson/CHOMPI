@@ -190,7 +190,7 @@ Each knob's click steps its pages; CHOMPI + a knob is its second function (the "
 |---|---|---|---|
 | 1 | 1 | Level (TAPE's gain) | Overdub level (red keeps nothing, green keeps it all) |
 | 1 | 2 | Recording threshold (off fully left; LED white by level, red while the input is above it) | Input level |
-| 1 | 3 | Tuning (TAPE's pitch) | Stepped tuning |
+| 1 | 3 | **Tuning:** an octave down to an octave up around the sample's pitch (in the middle), forwards only; reverse and stop are the wheel's. LED blue down, green at pitch, red up | Stepped tuning: −octave, −fifth, pitch, +fifth, +octave |
 | 1 | 4 | **LFO (planned, after the clock)** | Opens a white-key menu: shape off / triangle / square / random, targets pitch / filter / level |
 | 2 / 3 | 1 | **Start / end:** the sample loop's on the sampler page (live, down to 10 ms, finer as they close in; bake uses them), the recorded loop's (all layers) on the 4TRACK page | Amp attack / release (saved per slot, as TAPE) |
 | 2 / 3 | 2 | **Filter cutoff / resonance** (TAPE's DJ filter, moved from knob 4: low-pass left, high-pass right, open in the middle) | **Filter envelope attack / release** (1 ms to 4 s; both at zero = off) |

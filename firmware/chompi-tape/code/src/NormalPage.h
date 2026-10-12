@@ -294,10 +294,11 @@ namespace chompi
                     }
                     else if(page == kKnob1Tuning)
                     {
-                        float idx = enc_values[0][0] < .5f ? enc_values[0][0] * 2.f : (1.f - enc_values[0][0]) * 2.f; // 0 - 1 - 0
-                        r = color_quad_xfade(med_blue[0], green[0], yellow[0], red[0], idx);
-                        g = color_quad_xfade(med_blue[1], green[1], yellow[1], red[1], idx);
-                        b = color_quad_xfade(med_blue[2], green[2], yellow[2], red[2], idx);
+                        // blue down, green at the sample's pitch, red up
+                        const float tune = Engine::TapePosToTuning(enc_values[0][0]);
+                        r = color_triple_xfade(med_blue[0], green[0], red[0], tune);
+                        g = color_triple_xfade(med_blue[1], green[1], red[1], tune);
+                        b = color_triple_xfade(med_blue[2], green[2], red[2], tune);
                     }
                     else // level
                     {
@@ -897,14 +898,11 @@ namespace chompi
                     case kKnob1Threshold:
                         enc_values[2][0] = fclamp(enc_values[2][0] + turns * kEncoderCoarseStep, 0.f, 1.f);
                         break;
-                    default: // tuning: TAPE's pitch page
+                    default: // tuning: an octave either way of the sample's pitch (stepped with TAPE's option)
                         if(quantized_pitch_)
-                            enc_values[0][0] = fx_->SetGlobalPitchQuantized(turns, enc_values[0][0]);
+                            enc_values[0][0] = fx_->TuneStepped(turns, enc_values[0][0]);
                         else
-                        {
-                            enc_values[0][0] = fclamp(enc_values[0][0] + turns * kEncoderFineStep, 0.f, 1.f);
-                            fx_->SetGlobalPitchFree(enc_values[0][0]);
-                        }
+                            enc_values[0][0] = fx_->TuneFree(enc_values[0][0], turns * kEncoderFineStep);
                         DumpValuePresets();
                         break;
                 }

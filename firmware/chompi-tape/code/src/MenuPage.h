@@ -292,12 +292,12 @@ namespace chompi
                 {
                     r = g = b = 1.f;
                 }
-                else if(knob_page[0] == kKnob1Tuning) // stepped tuning
+                else if(knob_page[0] == kKnob1Tuning) // stepped tuning: blue down, green the sample's pitch, red up
                 {
-                    float idx = enc_values[0][0] < .5f ? enc_values[0][0] * 2.f : (1.f - enc_values[0][0]) * 2.f; // 0 - 1 - 0
-                    r = color_quad_xfade(med_blue[0], green[0], yellow[0], red[0], idx);
-                    g = color_quad_xfade(med_blue[1], green[1], yellow[1], red[1], idx);
-                    b = color_quad_xfade(med_blue[2], green[2], yellow[2], red[2], idx);
+                    const float tune = Engine::TapePosToTuning(enc_values[0][0]);
+                    r = color_triple_xfade(med_blue[0], green[0], red[0], tune);
+                    g = color_triple_xfade(med_blue[1], green[1], red[1], tune);
+                    b = color_triple_xfade(med_blue[2], green[2], red[2], tune);
                 }
                 else if(knob_page[0] == kKnob1Threshold) // input level, as the volume knob's
                 {
@@ -508,7 +508,7 @@ namespace chompi
                         fx_->SetInputGain(enc_values[1][5]);
                     }
                     else
-                        enc_values[0][0] = fx_->SetGlobalPitchQuantized(turns, enc_values[0][0]);
+                        enc_values[0][0] = fx_->TuneStepped(turns, enc_values[0][0]);
 
                     DumpValuePresets();
                 }
